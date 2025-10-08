@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mch"
+version = "0.0.1"
+dependencies = [
+    "typer",
+    "click",
+    "httpx",
+    "beautifulsoup4",
+    "lxml",
+    "tomli",
+    "tomli-w",
+    "desktop-notifier",
+    "rich",
+    "platformdirs",
+]
+
+[project.scripts]
+mch = "mch.cli:main"
+
+[tool.setuptools.package-data]
+mch = ["wordlists/*"]
