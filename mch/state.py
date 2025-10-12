@@ -19,7 +19,14 @@ class StateManager:
         if state_file.exists():
             try:
                 with open(state_file, "r") as f:
-                    return json.load(f)
+                    state = json.load(f)
+                    # Auto-ack expected ports from config on load
+                    from mch.config import ConfigManager
+                    config = ConfigManager()
+                    expected = config.get("ports", "expected", [])
+                    if "ports" in state:
+                        state["ports"].setdefault("acknowledged", []).extend([p for p in expected if p not in state["ports"]["acknowledged"]])
+                    return state
             except Exception as e:
                 self.logger.error(f"Failed to load state {state_file}: {e}")
                 return self._default_state()

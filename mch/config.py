@@ -6,10 +6,28 @@ from typing import Dict, Any
 from mch.utils import setup_logging
 
 DEFAULT_CONFIG = {
-    "ports": {"range": "1-65535"},
-    "fuzz": {"wordlist": str(Path(__file__).parent / "wordlists" / "directory-list-2.3-small.txt"), "extensions": [], "timeout": 5.0},
-    "acao-leak": {"endpoints": ["/"], "trusted_origins": []},
-    "acao-weak": {"endpoints": ["/"], "malicious_origins": ["http://malicious-{domain}"]},
+    "ports": {
+        "range": "1-65535",
+        "expected": [80, 443],  # Common expected ports; auto-ack on load
+        "timeout": 1.0
+    },
+    "fuzz": {
+        "wordlist": str(Path(__file__).parent / "wordlists" / "directory-list-2.3-small.txt"),
+        "extensions": [],
+        "timeout": 5.0,
+        "delay": 0.0,
+        "concurrency": 50
+    },
+    "acao-leak": {
+        "endpoints": ["/"],
+        "trusted_origins": [],
+        "timeout": 5.0
+    },
+    "acao-weak": {
+        "endpoints": ["/"],
+        "malicious_origins": ["http://malicious-{domain}"],
+        "timeout": 5.0
+    },
 }
 
 class ConfigManager:

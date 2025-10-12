@@ -17,8 +17,8 @@ class BaseScanner(ABC):
         self.logger = setup_logging()
 
     @abstractmethod
-    def run(self) -> Dict[str, Any]:
-        """Perform scan, update state, return results/warnings."""
+    async def run_async(self) -> Dict[str, Any]:
+        """Perform scan asynchronously, update state, return results/warnings."""
         pass
 
     def save(self):

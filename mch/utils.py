@@ -4,6 +4,10 @@ from platformdirs import user_data_dir
 import ipaddress
 import re
 import logging
+from rich.logging import RichHandler
+from rich.console import Console
+
+console = Console()
 
 def validate_target(target: str) -> str:
     if not isinstance(target, str):
@@ -30,8 +34,7 @@ def setup_logging():
         file_handler = logging.FileHandler(log_path)
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
-        stream_handler = logging.StreamHandler()
-        stream_handler.setLevel(logging.INFO)
-        stream_handler.setFormatter(formatter)
-        logger.handlers = [file_handler, stream_handler]
+        # Use RichHandler for console to integrate with Live and enable markup
+        console_handler = RichHandler(level=logging.INFO, show_time=False, show_level=True, show_path=False, markup=True)
+        logger.handlers = [file_handler, console_handler]
     return logger

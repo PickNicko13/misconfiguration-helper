@@ -15,6 +15,8 @@ import threading
 import time
 import re
 import logging
+import sys
+from rich.logging import RichHandler
 
 app = typer.Typer()
 console = Console()
@@ -23,16 +25,6 @@ logger = setup_logging()
 
 async def send_notification(title: str, message: str):
     await notifier.send(title=title, message=message)
-
-def run_async_in_thread(coro, scanner):
-    """Run an async coroutine in a separate thread with its own event loop."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    result = loop.run_until_complete(coro)
-    loop.close()
-    scanner.run_result = result
-    logger.debug(f"Async run completed for {scanner.__class__.__name__}: {result}")
-    return result
 
 @app.command()
 def scan(
@@ -46,9 +38,12 @@ def scan(
 ):
     """Scan hosts for misconfigurations."""
     if verbose:
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.DEBUG)
-        console_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+        # Clear existing stream handlers to avoid duplicates
+        existing_handlers = [h for h in logger.handlers if isinstance(h, logging.StreamHandler) or isinstance(h, RichHandler)]
+        for h in existing_handlers:
+            logger.removeHandler(h)
+        # Use RichHandler for verbose (DEBUG) console output to integrate with Live and enable proper formatting/coloration
+        console_handler = RichHandler(level=logging.DEBUG, show_time=False, show_level=True, show_path=False, markup=True)
         logger.addHandler(console_handler)
         logger.setLevel(logging.DEBUG)
         logger.debug("Verbose mode enabled: Debug logs will be printed to console")
@@ -65,8 +60,10 @@ def scan(
                     ov_dict[sec] = {}
                 if sec == "ports" and key == "expected":
                     val = [int(x) for x in val.split(",") if x.strip()]
-                elif sec in ("fuzz", "acao-leak", "acao-weak") and key in ("wordlist", "endpoints"):
-                    val = val
+                elif sec == "fuzz" and key == "wordlist":
+                    val = [x.strip() for x in val.split(",") if x.strip()]
+                elif sec in ("fuzz", "acao-leak", "acao-weak") and key in ("endpoints", "malicious_origins"):
+                    val = [x.strip() for x in val.split(",") if x.strip()]
                 elif sec == "ports" and key == "range":
                     if not re.match(r"^\d+-\d+$", val):
                         raise ValueError(f"Invalid port range: {val}")
@@ -99,7 +96,11 @@ def scan(
         logger.error(f"Invalid scan types: {invalid_types}")
         raise typer.Exit(1)
 
-    progress = Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console)
+    # Run the async scan
+    asyncio.run(async_scan(all_hosts, scan_types, config, state_mgr, warn_html_errors, no_notify, verbose))
+
+async def async_scan(all_hosts: List[str], scan_types: List[str], config: ConfigManager, state_mgr: StateManager, warn_html_errors: bool, no_notify: bool, verbose: bool):
+    progress = Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"))
     with Live(progress, refresh_per_second=50) as live:
         tasks = {host: progress.add_task(f"{host}: waiting", total=len(scan_types)) for host in all_hosts}
         for host in all_hosts:
@@ -109,6 +110,7 @@ def scan(
             status = {t: {"state": "waiting", "progress": ""} for t in scan_types}
             errors = []
             warnings = 0
+            scanner_tasks = []
             for t in scan_types:
                 status[t]["state"] = "scanning"
                 logger.debug(f"Initial status update for {t} on {host}: scanning")
@@ -116,39 +118,12 @@ def scan(
                 try:
                     scanner = SCANNERS[t](validated_host, config, state_mgr, warn_html_errors)
                     logger.debug(f"Scanner for {t}: {scanner.__class__.__name__}")
-                    if t in ["ports", "fuzz", "acao-weak"]:
-                        logger.debug(f"Starting async scan for {t} on {host}")
-                        thread = threading.Thread(target=run_async_in_thread, args=(scanner.run(), scanner))
-                        thread.start()
-                        last_progress = ""
-                        while thread.is_alive() or (hasattr(scanner, "is_scanning") and scanner.is_scanning()):
-                            progress_str = scanner.get_progress() if hasattr(scanner, "get_progress") else ""
-                            if progress_str != last_progress:
-                                status[t]["progress"] = progress_str
-                                logger.debug(f"Progress update for {t} on {host}: {progress_str}")
-                                update_status(progress, tasks, host, status, warnings, len(errors))
-                                live.refresh()
-                                last_progress = progress_str
-                            time.sleep(0.005)
-                        thread.join()
-                        res = scanner.run_result
-                        logger.debug(f"Async scan {t} result: {res}")
-                        if res:
-                            warnings += sum(len(v) for v in res.values() if v)
-                    else:
-                        logger.debug(f"Starting sync scan for {t} on {host}")
-                        res = scanner.run()
-                        logger.debug(f"Sync scan {t} result: {res}")
-                        if res:
-                            warnings += sum(len(v) for v in res.values() if v)
-                    status[t]["progress"] = scanner.get_progress() if hasattr(scanner, "get_progress") else ""
-                    status[t]["state"] = "complete"
-                    logger.debug(f"Final status update for {t} on {host}: complete, warnings={warnings}")
-                    update_status(progress, tasks, host, status, warnings, len(errors))
+                    # All scanners now have async run; create task
+                    scanner_task = asyncio.create_task(scanner.run_async())
+                    scanner_tasks.append((t, scanner, scanner_task))
                 except Exception as e:
                     errors.append(f"{t}: {e}")
-                    console.print(f"[red]Error in {t} on {host}: {e}[/red]")
-                    logger.error(f"Error in {t} on {host}: {e}")
+                    logger.error(f"{t} scanner failed on {host}: {e}")
                     status[t]["state"] = "error"
                     logger.debug(f"Error status update for {t} on {host}: error")
                     update_status(progress, tasks, host, status, warnings, len(errors))
@@ -156,9 +131,44 @@ def scan(
                 live.refresh()
                 time.sleep(0.1)
 
+            # Poll for progress and await completion for this host's scanners
+            if scanner_tasks:
+                last_progress = {t: "" for t, _, _ in scanner_tasks}
+                completed = set()
+                while len(completed) < len(scanner_tasks):
+                    for t, scanner, task in scanner_tasks:
+                        if t in completed:
+                            continue
+                        if task.done():
+                            completed.add(t)
+                            try:
+                                res = task.result()
+                                logger.debug(f"Async scan {t} result: {res}")
+                                if res:
+                                    warnings += sum(len(v) for v in res.values() if isinstance(v, list) and v)
+                            except Exception as e:
+                                errors.append(f"{t}: {e}")
+                                logger.error(f"Async scan {t} failed on {host}: {e}")
+                            status[t]["progress"] = scanner.get_progress() if hasattr(scanner, "get_progress") else ""
+                            status[t]["state"] = "complete"
+                            logger.debug(f"Final status update for {t} on {host}: complete, warnings={warnings}")
+                            update_status(progress, tasks, host, status, warnings, len(errors))
+                            live.refresh()
+                            progress.update(tasks[host], advance=1)
+                        else:
+                            if hasattr(scanner, "get_progress"):
+                                progress_str = scanner.get_progress()
+                                if progress_str != last_progress[t]:
+                                    status[t]["progress"] = progress_str
+                                    last_progress[t] = progress_str
+                                    logger.debug(f"Progress update for {t} on {host}: {progress_str}")
+                                    update_status(progress, tasks, host, status, warnings, len(errors))
+                                    live.refresh()
+                    await asyncio.sleep(0.1)
+
     if not no_notify:
         logger.debug("Sending scan completion notification")
-        asyncio.run(send_notification(title="MCH Scan Complete", message=f"Scanned {len(all_hosts)} hosts."))
+        await send_notification(title="MCH Scan Complete", message=f"Scanned {len(all_hosts)} hosts.")
 
 def update_status(progress: Progress, tasks: Dict, host: str, status: Dict, warnings: int, errors: int):
     desc = f"{host}: " + ", ".join([f"{t} ({s['state']}{s['progress']})" for t, s in status.items()])
@@ -179,6 +189,7 @@ def report(
         table = Table(title=f"Report for {host} ({type})")
         table.add_column("Type")
         table.add_column("Issues")
+        # Populate table based on report type
         if type == "critical":
             acao_leak_issues = [k for k, v in state.get("acao-leak", {}).get("issues", {}).items() if v == "uncategorized"]
             acao_weak_issues = [k for k, v in state.get("acao-weak", {}).get("issues", {}).items() if v == "uncategorized"]
@@ -186,10 +197,10 @@ def report(
             table.add_row("ACAO Weak Regex", f"[red]{len(acao_weak_issues)} issues[/red]" if acao_weak_issues else "None")
         elif type == "warnings":
             new_ports = [p for p in state["ports"].get("current_open", []) if p not in state["ports"].get("acknowledged", [])]
-            fuzz_issues = [p for p in state["fuzz"].get("issues", []) if p not in state["fuzz"].get("will_fix", []) + state["fuzz"].get("false_positive", []) + state["fuzz"].get("wont_fix", [])]
+            fuzz_issues = state["fuzz"].get("issues", []) + state["fuzz"].get("will_fix", [])
             acao_leak_issues = [k for k, v in state.get("acao-leak", {}).get("issues", {}).items() if v == "uncategorized"]
             acao_weak_issues = [k for k, v in state.get("acao-weak", {}).get("issues", {}).items() if v == "uncategorized"]
-            table.add_row("Unacked Ports", f"[yellow]{new_ports}[/yellow]" if new_ports else "None")
+            table.add_row("Unacked Ports", f"[yellow]{len(new_ports)} ports[/yellow]" if new_ports else "None")
             table.add_row("Fuzz Issues", f"[yellow]{len(fuzz_issues)} found[/yellow]" if fuzz_issues else "None")
             table.add_row("ACAO Leak Issues", f"[yellow]{len(acao_leak_issues)} issues[/yellow]" if acao_leak_issues else "None")
             table.add_row("ACAO Weak Regex Issues", f"[yellow]{len(acao_weak_issues)} issues[/yellow]" if acao_weak_issues else "None")
@@ -210,11 +221,52 @@ def report(
             table.add_row("ACAO Leak Statuses", str({k: v for k, v in state.get("acao-leak", {}).get("issues", {}).items()}))
             table.add_row("ACAO Weak Regex Issues", str(list(state["acao-weak"].get("issues", {}).keys())))
             table.add_row("ACAO Weak Regex Statuses", str({k: v for k, v in state.get("acao-weak", {}).get("issues", {}).items()}))
+        # Print table once before detailed lists
         console.print(table)
+        # Detailed issue lists for warnings
+        if type == "warnings":
+            if new_ports:
+                console.print("\n[yellow]Unacknowledged Open Ports:[/yellow]")
+                for port in sorted(new_ports):
+                    console.print(f"  - {port}")
+            if fuzz_issues:
+                console.print("\n[yellow]Fuzz Issues (Accessible Files/Directories):[/yellow]")
+                for path in sorted(fuzz_issues):
+                    console.print(f"  - {path}")
+            if acao_leak_issues:
+                console.print("\n[yellow]ACAO Leak Issues:[/yellow]")
+                for issue in sorted(acao_leak_issues):
+                    # Parse issue key: scheme/hostname/endpoint/leak_type/detail
+                    parts = issue.split("/")
+                    if len(parts) >= 4:
+                        endpoint = f"{parts[0]}://{parts[1]}{parts[2]}"
+                        leak_type = parts[3]
+                        detail = parts[4] if len(parts) > 4 else "N/A"
+                        console.print(f"  - {endpoint} ({leak_type}: {detail})")
+                    else:
+                        console.print(f"  - {issue} (malformed issue key)")
+            if acao_weak_issues:
+                console.print("\n[yellow]ACAO Weak Regex Issues:[/yellow]")
+                for issue in sorted(acao_weak_issues):
+                    # Parse issue key: scheme/hostname/endpoint/weak/origin
+                    parts = issue.split("/")
+                    if len(parts) >= 4:
+                        endpoint = f"{parts[0]}://{parts[1]}{parts[2]}"
+                        origin = parts[4] if len(parts) > 4 else "N/A"
+                        console.print(f"  - {endpoint} (origin: {origin})")
+                    else:
+                        console.print(f"  - {issue} (malformed issue key)")
 
 @app.command()
 def ack(host: str = typer.Argument(..., help="Host to acknowledge issues")):
     """Interactively acknowledge issues."""
+    # Check if terminal supports rich markup
+    if not sys.stdout.isatty():
+        # Fallback to plain text if not interactive
+        print(f"Acknowledging issues for {host} (plain text mode)")
+        # Simplified ack logic here if needed, but for now assume interactive
+        return
+
     state_mgr = StateManager()
     state = state_mgr.load_state(host)
 
@@ -230,7 +282,7 @@ def ack(host: str = typer.Argument(..., help="Host to acknowledge issues")):
             state["ports"]["acknowledged"].append(port)
             console.print(f"[green]Acknowledged port {port} on {host}[/green]")
 
-    fuzz_issues = [p for p in state["fuzz"].get("issues", []) if p not in state["fuzz"].get("will_fix", []) + state["fuzz"].get("false_positive", []) + state["fuzz"].get("wont_fix", [])]
+    fuzz_issues = state["fuzz"].get("issues", [])
     for path in fuzz_issues:
         prompt = SingleKeyPrompt(
             message=f"Acknowledge fuzz issue {path} on {host}",
@@ -252,6 +304,8 @@ def ack(host: str = typer.Argument(..., help="Host to acknowledge issues")):
         )
         response = prompt.ask()
         if response in ["will_fix", "false_positive", "wont_fix"]:
+            # Hierarchical: state["acao-leak"]["issues"][scheme][endpoint][leak_type] = response
+            # But for simplicity, keep flat key but update status
             state["acao-leak"]["issues"][issue] = response
             console.print(f"[green]Marked {issue} as {response.replace('_', '-')}[/green]")
 

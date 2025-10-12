@@ -53,8 +53,18 @@ class SingleKeyPrompt:
 
     def ask(self) -> str:
         """Capture a single keypress or fall back to text input, returning the selected option."""
+        # Check if terminal supports rich markup
+        if not sys.stdout.isatty():
+            self.console.print("[yellow]Non-interactive mode: using text input[/yellow]")
+            return Prompt.ask(
+                self.message,
+                choices=self.options,
+                default=self.default
+            )
+
         if sys.platform == "win32":
             self.console.print(self._render_prompt(), end=" ")
+            sys.stdout.flush()
             while msvcrt.kbhit():
                 msvcrt.getch()  # Clear buffer
             key = msvcrt.getch().decode('utf-8').lower()
@@ -66,7 +76,8 @@ class SingleKeyPrompt:
             return self.ask()
 
         elif sys.platform in ("linux", "darwin"):
-            self.console.print(self._render_prompt(), end=" ", flush=True)
+            self.console.print(self._render_prompt(), end=" ")
+            sys.stdout.flush()
             fd = sys.stdin.fileno()
             old_settings = termios.tcgetattr(fd)
             try:
