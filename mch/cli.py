@@ -111,6 +111,8 @@ async def async_scan(all_hosts: List[str], scan_types: List[str], config: Config
             errors = []
             warnings = 0
             scanner_tasks = []
+            # Load the current state for the host
+            host_state = state_mgr.load_state(validated_host)
             for t in scan_types:
                 status[t]["state"] = "scanning"
                 logger.debug(f"Initial status update for {t} on {host}: scanning")
@@ -118,7 +120,6 @@ async def async_scan(all_hosts: List[str], scan_types: List[str], config: Config
                 try:
                     scanner = SCANNERS[t](validated_host, config, state_mgr, warn_html_errors)
                     logger.debug(f"Scanner for {t}: {scanner.__class__.__name__}")
-                    # All scanners now have async run; create task
                     scanner_task = asyncio.create_task(scanner.run_async())
                     scanner_tasks.append((t, scanner, scanner_task))
                 except Exception as e:
@@ -146,6 +147,8 @@ async def async_scan(all_hosts: List[str], scan_types: List[str], config: Config
                                 logger.debug(f"Async scan {t} result: {res}")
                                 if res:
                                     warnings += sum(len(v) for v in res.values() if isinstance(v, list) and v)
+                                # Update host state with scanner's state
+                                host_state[t] = scanner.state.get(t, {})
                             except Exception as e:
                                 errors.append(f"{t}: {e}")
                                 logger.error(f"Async scan {t} failed on {host}: {e}")
@@ -165,6 +168,9 @@ async def async_scan(all_hosts: List[str], scan_types: List[str], config: Config
                                     update_status(progress, tasks, host, status, warnings, len(errors))
                                     live.refresh()
                     await asyncio.sleep(0.1)
+            # Save the combined state for the host
+            state_mgr.save_state(validated_host, host_state)
+            logger.debug(f"Saved state for {validated_host}: {host_state}")
 
     if not no_notify:
         logger.debug("Sending scan completion notification")
@@ -191,14 +197,14 @@ def report(
         table.add_column("Issues")
         # Populate table based on report type
         if type == "critical":
-            acao_leak_issues = [k for k, v in state.get("acao-leak", {}).get("issues", {}).items() if v == "uncategorized"]
+            acao_leak_issues = [i for i in state.get("acao-leak", {}).get("issues", []) if i["status"] == "uncategorized"]
             acao_weak_issues = [k for k, v in state.get("acao-weak", {}).get("issues", {}).items() if v == "uncategorized"]
             table.add_row("ACAO Leaks", f"[red]{len(acao_leak_issues)} leaks[/red]" if acao_leak_issues else "None")
             table.add_row("ACAO Weak Regex", f"[red]{len(acao_weak_issues)} issues[/red]" if acao_weak_issues else "None")
         elif type == "warnings":
             new_ports = [p for p in state["ports"].get("current_open", []) if p not in state["ports"].get("acknowledged", [])]
             fuzz_issues = state["fuzz"].get("issues", []) + state["fuzz"].get("will_fix", [])
-            acao_leak_issues = [k for k, v in state.get("acao-leak", {}).get("issues", {}).items() if v == "uncategorized"]
+            acao_leak_issues = [i for i in state.get("acao-leak", {}).get("issues", []) if i["status"] == "uncategorized"]
             acao_weak_issues = [k for k, v in state.get("acao-weak", {}).get("issues", {}).items() if v == "uncategorized"]
             table.add_row("Unacked Ports", f"[yellow]{len(new_ports)} ports[/yellow]" if new_ports else "None")
             table.add_row("Fuzz Issues", f"[yellow]{len(fuzz_issues)} found[/yellow]" if fuzz_issues else "None")
@@ -217,8 +223,14 @@ def report(
                 "false_positive": state["fuzz"].get("false_positive", []),
                 "wont_fix": state["fuzz"].get("wont_fix", [])
             }))
-            table.add_row("ACAO Leak Issues", str(list(state["acao-leak"].get("issues", {}).keys())))
-            table.add_row("ACAO Leak Statuses", str({k: v for k, v in state.get("acao-leak", {}).get("issues", {}).items()}))
+            table.add_row("ACAO Leak Issues", str([{
+                "scheme": i["scheme"],
+                "hostname": i["hostname"],
+                "endpoint": i["endpoint"],
+                "leak_type": i["leak_type"],
+                "detail": i["detail"],
+                "status": i["status"]
+            } for i in state.get("acao-leak", {}).get("issues", [])]))
             table.add_row("ACAO Weak Regex Issues", str(list(state["acao-weak"].get("issues", {}).keys())))
             table.add_row("ACAO Weak Regex Statuses", str({k: v for k, v in state.get("acao-weak", {}).get("issues", {}).items()}))
         # Print table once before detailed lists
@@ -235,16 +247,9 @@ def report(
                     console.print(f"  - {path}")
             if acao_leak_issues:
                 console.print("\n[yellow]ACAO Leak Issues:[/yellow]")
-                for issue in sorted(acao_leak_issues):
-                    # Parse issue key: scheme/hostname/endpoint/leak_type/detail
-                    parts = issue.split("/")
-                    if len(parts) >= 4:
-                        endpoint = f"{parts[0]}://{parts[1]}{parts[2]}"
-                        leak_type = parts[3]
-                        detail = parts[4] if len(parts) > 4 else "N/A"
-                        console.print(f"  - {endpoint} ({leak_type}: {detail})")
-                    else:
-                        console.print(f"  - {issue} (malformed issue key)")
+                for issue in sorted(acao_leak_issues, key=lambda x: (x["scheme"], x["hostname"], x["endpoint"], x["leak_type"], x["detail"])):
+                    endpoint = f"{issue['scheme']}://{issue['hostname']}{issue['endpoint']}"
+                    console.print(f"  - {endpoint} ({issue['leak_type']}: {issue['detail']})")
             if acao_weak_issues:
                 console.print("\n[yellow]ACAO Weak Regex Issues:[/yellow]")
                 for issue in sorted(acao_weak_issues):
@@ -295,19 +300,18 @@ def ack(host: str = typer.Argument(..., help="Host to acknowledge issues")):
             state["fuzz"].setdefault(response, []).append(path)
             console.print(f"[green]Marked {path} as {response.replace('_', '-')}[/green]")
 
-    acao_leak_issues = [k for k, v in state.get("acao-leak", {}).get("issues", {}).items() if v == "uncategorized"]
+    acao_leak_issues = [i for i in state.get("acao-leak", {}).get("issues", []) if i["status"] == "uncategorized"]
     for issue in acao_leak_issues:
+        endpoint = f"{issue['scheme']}://{issue['hostname']}{issue['endpoint']}"
         prompt = SingleKeyPrompt(
-            message=f"Acknowledge ACAO leak issue {issue} on {host}",
+            message=f"Acknowledge ACAO leak issue {endpoint} ({issue['leak_type']}: {issue['detail']}) on {host}",
             options=["will_fix", "false_positive", "wont_fix", "skip"],
             default="skip"
         )
         response = prompt.ask()
         if response in ["will_fix", "false_positive", "wont_fix"]:
-            # Hierarchical: state["acao-leak"]["issues"][scheme][endpoint][leak_type] = response
-            # But for simplicity, keep flat key but update status
-            state["acao-leak"]["issues"][issue] = response
-            console.print(f"[green]Marked {issue} as {response.replace('_', '-')}[/green]")
+            issue["status"] = response
+            console.print(f"[green]Marked {endpoint} as {response.replace('_', '-')}[/green]")
 
     acao_weak_issues = [k for k, v in state.get("acao-weak", {}).get("issues", {}).items() if v == "uncategorized"]
     for issue in acao_weak_issues:

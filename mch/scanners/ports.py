@@ -62,7 +62,6 @@ class PortsScanner(BaseScanner):
         finally:
             with self._lock:
                 self._is_scanning = False
-            self.save()
         self.run_result = results
         return results
 

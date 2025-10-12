@@ -39,8 +39,7 @@ class FuzzScanner(BaseScanner):
             if attempt < max_retries - 1:
                 await asyncio.sleep(backoff)
                 backoff *= 2
-        # Fixed: Use rich_print for user-facing warning to avoid Live interference
-        self.logger.debug(f"Scheme {scheme} unresponsive after {max_retries} probes; skipping")  # Keep debug for logs
+        self.logger.debug(f"Scheme {scheme} unresponsive after {max_retries} probes; skipping")
         self.logger.warning(f"Skipping fuzz on {scheme}://{target} (unresponsive after {max_retries} probes)")
         return False
 
@@ -124,7 +123,6 @@ class FuzzScanner(BaseScanner):
             with self._lock:
                 self._is_scanning = False
         self.run_result = results
-        self.save()
         return results
 
     async def scan_path(self, client: httpx.AsyncClient, scheme: str, target: str, path: str, timeout: float, delay: float, semaphore: asyncio.Semaphore) -> tuple[bool, int | None]:

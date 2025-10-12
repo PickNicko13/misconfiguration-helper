@@ -36,7 +36,7 @@ class StateManager:
         return {
             "ports": {"acknowledged": [], "current_open": []},
             "fuzz": {"issues": [], "will_fix": [], "false_positive": [], "wont_fix": []},
-            "acao-leak": {"issues": {}},
+            "acao-leak": {"issues": []},
             "acao-weak": {"issues": {}},
         }
 

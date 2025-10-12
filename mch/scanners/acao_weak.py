@@ -92,8 +92,6 @@ class AcaoWeakScanner(BaseScanner):
 
             self.state["acao-weak"]["issues"] = state_issues
             self.logger.debug(f"Updated state: {self.state['acao-weak']}")
-            self.save()
-            self.logger.debug("State saved")
         except Exception as e:
             self.logger.error(f"Weak ACAO scan failed: {type(e).__name__} {e}")
         finally:

@@ -31,16 +31,14 @@ class AcaoLeakScanner(BaseScanner):
         endpoints = self.config.get("acao-leak", "endpoints", ["/"])
         trusted = self.config.get("acao-leak", "trusted_origins", [])
         timeout = self.config.get("acao-leak", "timeout", 5.0)
-        request_origin = "http://evil.com"  # Fixed origin for testing
+        request_origin = "http://evil.com"
         schemes = ["http", "https"]
         self.total_endpoints = len(endpoints) * len(schemes)
         self._is_scanning = True
 
-        # Log configuration
         self.logger.debug(f"Configuration - endpoints: {endpoints}")
         self.logger.debug(f"Configuration - trusted_origins: {trusted}")
 
-        # Validate configuration
         if not isinstance(endpoints, list) or not all(isinstance(e, str) for e in endpoints):
             self.logger.error(f"Invalid endpoints configuration: {endpoints}")
             return results
@@ -48,15 +46,15 @@ class AcaoLeakScanner(BaseScanner):
             self.logger.error(f"Invalid trusted_origins configuration: {trusted}")
             return results
 
-        # Initialize state
         self.logger.debug(f"Initial state: {self.state.get('acao-leak', {})}")
         if "acao-leak" not in self.state or not isinstance(self.state["acao-leak"], dict):
             self.logger.debug("Initializing acao-leak state")
-            self.state["acao-leak"] = {"issues": {}}
-        state_issues = self.state["acao-leak"].get("issues", {})
+            self.state["acao-leak"] = {"issues": []}
+        state_issues = self.state["acao-leak"].get("issues", [])
         self.logger.debug(f"State issues for acao-leak: {state_issues}")
 
-        detected_keys = set()  # For removal logic
+        detected_issues = []
+        detected_keys = set()  # Track unique issues to prevent duplicates
 
         try:
             async with httpx.AsyncClient(verify=False) as client:
@@ -79,48 +77,75 @@ class AcaoLeakScanner(BaseScanner):
                         is_ip_leak = len(extracted_ips) > 0
                         leak_type = None
                         detail = None
+                        issues_to_add = []
                         if is_wildcard:
                             leak_type = "wildcard"
                             detail = "*"
+                            issues_to_add.append({
+                                "scheme": scheme,
+                                "hostname": target,
+                                "endpoint": endpoint,
+                                "leak_type": leak_type,
+                                "detail": detail,
+                                "status": "uncategorized"
+                            })
                         elif is_reflect:
                             leak_type = "reflect"
                             detail = request_origin
+                            issues_to_add.append({
+                                "scheme": scheme,
+                                "hostname": target,
+                                "endpoint": endpoint,
+                                "leak_type": leak_type,
+                                "detail": detail,
+                                "status": "uncategorized"
+                            })
                         elif is_ip_leak:
                             leak_type = "ip"
-                            # For multi-IP, handle each
                             for ip in extracted_ips:
                                 detail = ip
-                                issue_key = f"{scheme}/{target}{endpoint}/{leak_type}/{detail}"
+                                issues_to_add.append({
+                                    "scheme": scheme,
+                                    "hostname": target,
+                                    "endpoint": endpoint,
+                                    "leak_type": leak_type,
+                                    "detail": detail,
+                                    "status": "uncategorized"
+                                })
+
+                        for issue in issues_to_add:
+                            issue_key = (issue["scheme"], issue["hostname"], issue["endpoint"], issue["leak_type"], issue["detail"])
+                            if issue_key not in detected_keys and acao not in trusted:
                                 detected_keys.add(issue_key)
-                                self._handle_leak_detection(issue_key, state_issues, endpoint_result, detail, acao)
-                                results["leaks"].append({"url": endpoint_result, "leak_type": leak_type, "detail": detail, "acao": acao})
-                            continue  # Skip single detail for IP case
+                                handled_issue = self._handle_leak_detection(issue, state_issues, endpoint_result, detail, acao)
+                                if handled_issue:
+                                    detected_issues.append(handled_issue)
+                                    results["leaks"].append({
+                                        "url": endpoint_result,
+                                        "leak_type": leak_type,
+                                        "detail": detail,
+                                        "acao": acao
+                                    })
 
-                        if leak_type and acao not in trusted:
-                            issue_key = f"{scheme}/{target}{endpoint}/{leak_type}/{detail}"
-                            detected_keys.add(issue_key)
-                            self._handle_leak_detection(issue_key, state_issues, endpoint_result, detail, acao)
-                            results["leaks"].append({"url": endpoint_result, "leak_type": leak_type, "detail": detail, "acao": acao})
+            # Remove issues no longer detected (uncategorized) or mark wont_fix as fixed
+            new_issues = []
+            for issue in state_issues:
+                issue_key = (issue["scheme"], issue["hostname"], issue["endpoint"], issue["leak_type"], issue["detail"])
+                if issue_key in detected_keys:
+                    new_issues.append(issue)
+                elif issue["status"] == "uncategorized":
+                    self.logger.debug(f"Removing uncategorized issue {issue_key}")
+                elif issue["status"] == "wont_fix":
+                    self.logger.debug(f"Marking wont-fix issue {issue_key} as fixed")
+                    issue["status"] = "fixed"
+                    new_issues.append(issue)
+                else:
+                    new_issues.append(issue)
 
-            # Improved removal: use detected_keys set
-            for issue_key in list(state_issues.keys()):
-                if issue_key not in detected_keys:
-                    status = state_issues[issue_key]
-                    self.logger.debug(f"Checking state for {issue_key}: status={status}")
-                    if status == "uncategorized":
-                        self.logger.debug(f"Removing uncategorized issue {issue_key}")
-                        del state_issues[issue_key]
-                    elif status == "wont_fix":  # Note: user code has "wont_fix", assuming consistent
-                        self.logger.debug(f"Marking wont-fix issue {issue_key} as fixed")
-                        state_issues[issue_key] = "fixed"
-
+            self.state["acao-leak"]["issues"] = new_issues + detected_issues
+            self.logger.debug(f"Updated state: {self.state['acao-leak']}")
             if not results["leaks"]:
                 self.logger.info(f"[cyan]No ACAO leaks found on {self.target} for HTTP and HTTPS[/cyan]")
-
-            self.state["acao-leak"]["issues"] = state_issues
-            self.logger.debug(f"Updated state: {self.state['acao-leak']}")
-            self.save()
-            self.logger.debug("State saved")
         except Exception as e:
             self.logger.error(f"ACAO leak scan failed: {type(e).__name__} {e}")
         finally:
@@ -129,7 +154,6 @@ class AcaoLeakScanner(BaseScanner):
         return results
 
     async def check_endpoint_async(self, client: httpx.AsyncClient, scheme: str, target: str, endpoint: str, timeout: float, request_origin: str, trusted: List[str]) -> tuple[str, bool, str | None, tuple[str | None, str | None]]:
-        """Check an endpoint for ACAO leaks for a specific scheme asynchronously."""
         self.logger.debug(f"Checking {scheme} endpoint {endpoint} on {target}")
         try:
             url = urllib.parse.urljoin(f"{scheme}://{target}", endpoint)
@@ -156,7 +180,7 @@ class AcaoLeakScanner(BaseScanner):
                     detail = request_origin
                 elif is_ip_leak:
                     leak_type = "ip"
-                    detail = ",".join(extracted_ips)  # For single return, but handled in loop
+                    detail = ",".join(extracted_ips)
                 if acao not in trusted and (is_wildcard or is_reflect or is_ip_leak):
                     return f"{scheme}://{target}{endpoint}", True, acao, (leak_type, detail)
             return f"{scheme}://{target}{endpoint}", False, None, (None, None)
@@ -178,24 +202,31 @@ class AcaoLeakScanner(BaseScanner):
             self.logger.error(f"Unexpected error checking {scheme} {endpoint}: {type(e).__name__} {e}")
             return f"{scheme}://{target}{endpoint}", False, None, (None, None)
 
-    def _handle_leak_detection(self, issue_key: str, state_issues: Dict, endpoint: str, detail: str, acao: str):
-        """Handle detection and state update for a leak."""
-        if issue_key in state_issues:
-            status = state_issues[issue_key]
-            if status == "fixed":
-                self.logger.error(f"Previously fixed ACAO leak {issue_key} re-detected on {self.target}")
-                state_issues[issue_key] = "uncategorized"
-            elif status == "false_positive":
-                self.logger.error(f"Previously false-positive ACAO leak {issue_key} still detected on {self.target}")
-                state_issues[issue_key] = "uncategorized"
-            elif status == "uncategorized":
-                self.logger.warning(f"ACAO leak ({detail}) on {endpoint}: ACAO={acao}")
-        else:
-            state_issues[issue_key] = "uncategorized"
-            self.logger.warning(f"New ACAO leak ({detail}) on {endpoint}: ACAO={acao}")
+    def _handle_leak_detection(self, issue: Dict, state_issues: List[Dict], endpoint: str, detail: str, acao: str) -> Dict | None:
+        issue_key = (issue["scheme"], issue["hostname"], issue["endpoint"], issue["leak_type"], issue["detail"])
+        for existing_issue in state_issues:
+            if (existing_issue["scheme"] == issue["scheme"] and
+                existing_issue["hostname"] == issue["hostname"] and
+                existing_issue["endpoint"] == issue["endpoint"] and
+                existing_issue["leak_type"] == issue["leak_type"] and
+                existing_issue["detail"] == issue["detail"]):
+                status = existing_issue["status"]
+                if status == "fixed":
+                    self.logger.error(f"Previously fixed ACAO leak {issue_key} re-detected on {self.target}")
+                    existing_issue["status"] = "uncategorized"
+                    return existing_issue
+                elif status == "false_positive":
+                    self.logger.error(f"Previously false-positive ACAO leak {issue_key} still detected on {self.target}")
+                    existing_issue["status"] = "uncategorized"
+                    return existing_issue
+                elif status == "uncategorized":
+                    self.logger.warning(f"ACAO leak ({detail}) on {endpoint}: ACAO={acao}")
+                    return None  # Do not re-add existing uncategorized issue
+                return None
+        self.logger.warning(f"New ACAO leak ({detail}) on {endpoint}: ACAO={acao}")
+        return issue
 
     def extract_ips(self, text: str) -> List[str]:
-        """Extract all valid IP addresses from text."""
         ip_pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}\b'
         matches = re.findall(ip_pattern, text)
         valid_ips = []
