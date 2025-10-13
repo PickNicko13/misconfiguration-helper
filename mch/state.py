@@ -37,7 +37,7 @@ class StateManager:
             "ports": {"acknowledged": [], "current_open": []},
             "fuzz": {"issues": [], "will_fix": [], "false_positive": [], "wont_fix": []},
             "acao-leak": {"issues": []},
-            "acao-weak": {"issues": {}},
+            "acao-weak": {"issues": []},
         }
 
     def save_state(self, target: str, state: Dict[str, Any]):

@@ -198,14 +198,14 @@ def report(
         # Populate table based on report type
         if type == "critical":
             acao_leak_issues = [i for i in state.get("acao-leak", {}).get("issues", []) if i["status"] == "uncategorized"]
-            acao_weak_issues = [k for k, v in state.get("acao-weak", {}).get("issues", {}).items() if v == "uncategorized"]
+            acao_weak_issues = [i for i in state.get("acao-weak", {}).get("issues", []) if i["status"] == "uncategorized"]
             table.add_row("ACAO Leaks", f"[red]{len(acao_leak_issues)} leaks[/red]" if acao_leak_issues else "None")
             table.add_row("ACAO Weak Regex", f"[red]{len(acao_weak_issues)} issues[/red]" if acao_weak_issues else "None")
         elif type == "warnings":
             new_ports = [p for p in state["ports"].get("current_open", []) if p not in state["ports"].get("acknowledged", [])]
             fuzz_issues = state["fuzz"].get("issues", []) + state["fuzz"].get("will_fix", [])
             acao_leak_issues = [i for i in state.get("acao-leak", {}).get("issues", []) if i["status"] == "uncategorized"]
-            acao_weak_issues = [k for k, v in state.get("acao-weak", {}).get("issues", {}).items() if v == "uncategorized"]
+            acao_weak_issues = [i for i in state.get("acao-weak", {}).get("issues", []) if i["status"] == "uncategorized"]
             table.add_row("Unacked Ports", f"[yellow]{len(new_ports)} ports[/yellow]" if new_ports else "None")
             table.add_row("Fuzz Issues", f"[yellow]{len(fuzz_issues)} found[/yellow]" if fuzz_issues else "None")
             table.add_row("ACAO Leak Issues", f"[yellow]{len(acao_leak_issues)} issues[/yellow]" if acao_leak_issues else "None")
@@ -231,8 +231,14 @@ def report(
                 "detail": i["detail"],
                 "status": i["status"]
             } for i in state.get("acao-leak", {}).get("issues", [])]))
-            table.add_row("ACAO Weak Regex Issues", str(list(state["acao-weak"].get("issues", {}).keys())))
-            table.add_row("ACAO Weak Regex Statuses", str({k: v for k, v in state.get("acao-weak", {}).get("issues", {}).items()}))
+            table.add_row("ACAO Weak Regex Issues", str([{
+                "scheme": i["scheme"],
+                "hostname": i["hostname"],
+                "endpoint": i["endpoint"],
+                "weak_type": i["weak_type"],
+                "detail": i["detail"],
+                "status": i["status"]
+            } for i in state.get("acao-weak", {}).get("issues", [])]))
         # Print table once before detailed lists
         console.print(table)
         # Detailed issue lists for warnings
@@ -252,15 +258,9 @@ def report(
                     console.print(f"  - {endpoint} ({issue['leak_type']}: {issue['detail']})")
             if acao_weak_issues:
                 console.print("\n[yellow]ACAO Weak Regex Issues:[/yellow]")
-                for issue in sorted(acao_weak_issues):
-                    # Parse issue key: scheme/hostname/endpoint/weak/origin
-                    parts = issue.split("/")
-                    if len(parts) >= 4:
-                        endpoint = f"{parts[0]}://{parts[1]}{parts[2]}"
-                        origin = parts[4] if len(parts) > 4 else "N/A"
-                        console.print(f"  - {endpoint} (origin: {origin})")
-                    else:
-                        console.print(f"  - {issue} (malformed issue key)")
+                for issue in sorted(acao_weak_issues, key=lambda x: (x["scheme"], x["hostname"], x["endpoint"], x["weak_type"], x["detail"])):
+                    endpoint = f"{issue['scheme']}://{issue['hostname']}{issue['endpoint']}"
+                    console.print(f"  - {endpoint} ({issue['weak_type']}: {issue['detail']})")
 
 @app.command()
 def ack(host: str = typer.Argument(..., help="Host to acknowledge issues")):
@@ -313,17 +313,18 @@ def ack(host: str = typer.Argument(..., help="Host to acknowledge issues")):
             issue["status"] = response
             console.print(f"[green]Marked {endpoint} as {response.replace('_', '-')}[/green]")
 
-    acao_weak_issues = [k for k, v in state.get("acao-weak", {}).get("issues", {}).items() if v == "uncategorized"]
+    acao_weak_issues = [i for i in state.get("acao-weak", {}).get("issues", []) if i["status"] == "uncategorized"]
     for issue in acao_weak_issues:
+        endpoint = f"{issue['scheme']}://{issue['hostname']}{issue['endpoint']}"
         prompt = SingleKeyPrompt(
-            message=f"Acknowledge ACAO weak issue {issue} on {host}",
+            message=f"Acknowledge ACAO weak issue {endpoint} ({issue['weak_type']}: {issue['detail']}) on {host}",
             options=["will_fix", "false_positive", "wont_fix", "skip"],
             default="skip"
         )
         response = prompt.ask()
         if response in ["will_fix", "false_positive", "wont_fix"]:
-            state["acao-weak"]["issues"][issue] = response
-            console.print(f"[green]Marked {issue} as {response.replace('_', '-')}[/green]")
+            issue["status"] = response
+            console.print(f"[green]Marked {endpoint} as {response.replace('_', '-')}[/green]")
 
     state_mgr.save_state(host, state)
 
