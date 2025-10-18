@@ -18,16 +18,11 @@ DEFAULT_CONFIG = {
         "delay": 0.0,
         "concurrency": 50
     },
-    "acao-leak": {
-        "endpoints": ["/"],
-        "trusted_origins": [],
-        "timeout": 5.0
-    },
-    "acao-weak": {
+    "acao": {
         "endpoints": ["/"],
         "malicious_origins": ["http://malicious-{domain}"],
         "timeout": 5.0
-    },
+    }
 }
 
 class ConfigManager:

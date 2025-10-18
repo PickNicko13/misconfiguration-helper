@@ -142,7 +142,7 @@ class FuzzScanner(BaseScanner):
                         if "404" in body_lower or "not found" in body_lower:
                             self.logger.debug(f"Detected custom 404 for {url} (body indicators)")
                             return False, 200
-                    if r.status_code in [200, 301, 302]:
+                    if r.status_code in [200, 301, 302, 303, 304, 307, 308]:
                         return True, r.status_code
                     return False, None
                 except httpx.ConnectError as e:

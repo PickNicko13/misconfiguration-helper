@@ -28,7 +28,7 @@ async def send_notification(title: str, message: str):
 
 @app.command()
 def scan(
-    types: str = typer.Argument("all", help="Comma-separated scan types (ports, fuzz, acao-leak, acao-weak) or 'all'"),
+    types: str = typer.Argument("all", help="Comma-separated scan types (ports, fuzz, acao) or 'all'"),
     hosts: Optional[List[str]] = typer.Argument(None, help="Hosts to scan"),
     host_list: Optional[typer.FileText] = typer.Option(None, "--host-list", help="File with hosts, one per line"),
     no_notify: bool = typer.Option(False, "--no-notify", help="Disable notifications"),
@@ -38,11 +38,9 @@ def scan(
 ):
     """Scan hosts for misconfigurations."""
     if verbose:
-        # Clear existing stream handlers to avoid duplicates
         existing_handlers = [h for h in logger.handlers if isinstance(h, logging.StreamHandler) or isinstance(h, RichHandler)]
         for h in existing_handlers:
             logger.removeHandler(h)
-        # Use RichHandler for verbose (DEBUG) console output to integrate with Live and enable proper formatting/coloration
         console_handler = RichHandler(level=logging.DEBUG, show_time=False, show_level=True, show_path=False, markup=True)
         logger.addHandler(console_handler)
         logger.setLevel(logging.DEBUG)
@@ -62,15 +60,15 @@ def scan(
                     val = [int(x) for x in val.split(",") if x.strip()]
                 elif sec == "fuzz" and key == "wordlist":
                     val = [x.strip() for x in val.split(",") if x.strip()]
-                elif sec in ("fuzz", "acao-leak", "acao-weak") and key in ("endpoints", "malicious_origins"):
+                elif sec in ("fuzz", "acao") and key in ("endpoints", "malicious_origins"):
                     val = [x.strip() for x in val.split(",") if x.strip()]
                 elif sec == "ports" and key == "range":
                     if not re.match(r"^\d+-\d+$", val):
                         raise ValueError(f"Invalid port range: {val}")
                     val = str(val)
-                elif sec in ("fuzz", "acao-leak", "acao-weak") and key in ("timeout", "delay"):
+                elif sec in ("fuzz", "acao") and key in ("timeout", "delay"):
                     val = float(val)
-                elif sec in ("fuzz", "acao-leak", "acao-weak") and key in ("concurrency", "batch_size"):
+                elif sec in ("fuzz", "acao") and key in ("concurrency", "batch_size"):
                     val = int(val)
                 else:
                     val = str(val)
@@ -96,7 +94,6 @@ def scan(
         logger.error(f"Invalid scan types: {invalid_types}")
         raise typer.Exit(1)
 
-    # Run the async scan
     asyncio.run(async_scan(all_hosts, scan_types, config, state_mgr, warn_html_errors, no_notify, verbose))
 
 async def async_scan(all_hosts: List[str], scan_types: List[str], config: ConfigManager, state_mgr: StateManager, warn_html_errors: bool, no_notify: bool, verbose: bool):
@@ -111,7 +108,6 @@ async def async_scan(all_hosts: List[str], scan_types: List[str], config: Config
             errors = []
             warnings = 0
             scanner_tasks = []
-            # Load the current state for the host
             host_state = state_mgr.load_state(validated_host)
             for t in scan_types:
                 status[t]["state"] = "scanning"
@@ -132,7 +128,6 @@ async def async_scan(all_hosts: List[str], scan_types: List[str], config: Config
                 live.refresh()
                 time.sleep(0.1)
 
-            # Poll for progress and await completion for this host's scanners
             if scanner_tasks:
                 last_progress = {t: "" for t, _, _ in scanner_tasks}
                 completed = set()
@@ -147,7 +142,6 @@ async def async_scan(all_hosts: List[str], scan_types: List[str], config: Config
                                 logger.debug(f"Async scan {t} result: {res}")
                                 if res:
                                     warnings += sum(len(v) for v in res.values() if isinstance(v, list) and v)
-                                # Update host state with scanner's state
                                 host_state[t] = scanner.state.get(t, {})
                             except Exception as e:
                                 errors.append(f"{t}: {e}")
@@ -168,7 +162,6 @@ async def async_scan(all_hosts: List[str], scan_types: List[str], config: Config
                                     update_status(progress, tasks, host, status, warnings, len(errors))
                                     live.refresh()
                     await asyncio.sleep(0.1)
-            # Save the combined state for the host
             state_mgr.save_state(validated_host, host_state)
             logger.debug(f"Saved state for {validated_host}: {host_state}")
 
@@ -195,21 +188,16 @@ def report(
         table = Table(title=f"Report for {host} ({type})")
         table.add_column("Type")
         table.add_column("Issues")
-        # Populate table based on report type
         if type == "critical":
-            acao_leak_issues = [i for i in state.get("acao-leak", {}).get("issues", []) if i["status"] == "uncategorized"]
-            acao_weak_issues = [i for i in state.get("acao-weak", {}).get("issues", []) if i["status"] == "uncategorized"]
-            table.add_row("ACAO Leaks", f"[red]{len(acao_leak_issues)} leaks[/red]" if acao_leak_issues else "None")
-            table.add_row("ACAO Weak Regex", f"[red]{len(acao_weak_issues)} issues[/red]" if acao_weak_issues else "None")
+            acao_issues = [i for i in state.get("acao", {}).get("issues", []) if i["status"] == "uncategorized" and i["weak_type"] in ["arbitrary", "leaked_ip"]]
+            table.add_row("ACAO Issues", f"[red]{len(acao_issues)} issues[/red]" if acao_issues else "None")
         elif type == "warnings":
             new_ports = [p for p in state["ports"].get("current_open", []) if p not in state["ports"].get("acknowledged", [])]
             fuzz_issues = state["fuzz"].get("issues", []) + state["fuzz"].get("will_fix", [])
-            acao_leak_issues = [i for i in state.get("acao-leak", {}).get("issues", []) if i["status"] == "uncategorized"]
-            acao_weak_issues = [i for i in state.get("acao-weak", {}).get("issues", []) if i["status"] == "uncategorized"]
+            acao_issues = [i for i in state.get("acao", {}).get("issues", []) if i["status"] in ["uncategorized", "will_fix"]]
             table.add_row("Unacked Ports", f"[yellow]{len(new_ports)} ports[/yellow]" if new_ports else "None")
             table.add_row("Fuzz Issues", f"[yellow]{len(fuzz_issues)} found[/yellow]" if fuzz_issues else "None")
-            table.add_row("ACAO Leak Issues", f"[yellow]{len(acao_leak_issues)} issues[/yellow]" if acao_leak_issues else "None")
-            table.add_row("ACAO Weak Regex Issues", f"[yellow]{len(acao_weak_issues)} issues[/yellow]" if acao_weak_issues else "None")
+            table.add_row("ACAO Issues", f"[yellow]{len(acao_issues)} issues[/yellow]" if acao_issues else "None")
         elif type == "all":
             table.add_row("All Ports", str(list(state["ports"].get("current_open", []))))
             table.add_row("Port Statuses", str({
@@ -223,25 +211,15 @@ def report(
                 "false_positive": state["fuzz"].get("false_positive", []),
                 "wont_fix": state["fuzz"].get("wont_fix", [])
             }))
-            table.add_row("ACAO Leak Issues", str([{
-                "scheme": i["scheme"],
-                "hostname": i["hostname"],
-                "endpoint": i["endpoint"],
-                "leak_type": i["leak_type"],
-                "detail": i["detail"],
-                "status": i["status"]
-            } for i in state.get("acao-leak", {}).get("issues", [])]))
-            table.add_row("ACAO Weak Regex Issues", str([{
+            table.add_row("ACAO Issues", str([{
                 "scheme": i["scheme"],
                 "hostname": i["hostname"],
                 "endpoint": i["endpoint"],
                 "weak_type": i["weak_type"],
                 "detail": i["detail"],
                 "status": i["status"]
-            } for i in state.get("acao-weak", {}).get("issues", [])]))
-        # Print table once before detailed lists
+            } for i in state.get("acao", {}).get("issues", [])]))
         console.print(table)
-        # Detailed issue lists for warnings
         if type == "warnings":
             if new_ports:
                 console.print("\n[yellow]Unacknowledged Open Ports:[/yellow]")
@@ -251,25 +229,17 @@ def report(
                 console.print("\n[yellow]Fuzz Issues (Accessible Files/Directories):[/yellow]")
                 for path in sorted(fuzz_issues):
                     console.print(f"  - {path}")
-            if acao_leak_issues:
-                console.print("\n[yellow]ACAO Leak Issues:[/yellow]")
-                for issue in sorted(acao_leak_issues, key=lambda x: (x["scheme"], x["hostname"], x["endpoint"], x["leak_type"], x["detail"])):
-                    endpoint = f"{issue['scheme']}://{issue['hostname']}{issue['endpoint']}"
-                    console.print(f"  - {endpoint} ({issue['leak_type']}: {issue['detail']})")
-            if acao_weak_issues:
-                console.print("\n[yellow]ACAO Weak Regex Issues:[/yellow]")
-                for issue in sorted(acao_weak_issues, key=lambda x: (x["scheme"], x["hostname"], x["endpoint"], x["weak_type"], x["detail"])):
+            if acao_issues:
+                console.print("\n[yellow]ACAO Issues:[/yellow]")
+                for issue in sorted(acao_issues, key=lambda x: (x["scheme"], x["hostname"], x["endpoint"], x["weak_type"], x["detail"])):
                     endpoint = f"{issue['scheme']}://{issue['hostname']}{issue['endpoint']}"
                     console.print(f"  - {endpoint} ({issue['weak_type']}: {issue['detail']})")
 
 @app.command()
 def ack(host: str = typer.Argument(..., help="Host to acknowledge issues")):
     """Interactively acknowledge issues."""
-    # Check if terminal supports rich markup
     if not sys.stdout.isatty():
-        # Fallback to plain text if not interactive
         print(f"Acknowledging issues for {host} (plain text mode)")
-        # Simplified ack logic here if needed, but for now assume interactive
         return
 
     state_mgr = StateManager()
@@ -291,38 +261,25 @@ def ack(host: str = typer.Argument(..., help="Host to acknowledge issues")):
     for path in fuzz_issues:
         prompt = SingleKeyPrompt(
             message=f"Acknowledge fuzz issue {path} on {host}",
-            options=["will_fix", "false_positive", "wont_fix", "skip"],
+            options=["false_positive", "wont_fix", "skip"],
             default="skip"
         )
         response = prompt.ask()
-        if response in ["will_fix", "false_positive", "wont_fix"]:
+        if response in ["false_positive", "wont_fix"]:
             state["fuzz"]["issues"].remove(path)
             state["fuzz"].setdefault(response, []).append(path)
             console.print(f"[green]Marked {path} as {response.replace('_', '-')}[/green]")
 
-    acao_leak_issues = [i for i in state.get("acao-leak", {}).get("issues", []) if i["status"] == "uncategorized"]
-    for issue in acao_leak_issues:
+    acao_issues = [i for i in state.get("acao", {}).get("issues", []) if i["status"] in ["uncategorized", "will_fix"]]
+    for issue in acao_issues:
         endpoint = f"{issue['scheme']}://{issue['hostname']}{issue['endpoint']}"
         prompt = SingleKeyPrompt(
-            message=f"Acknowledge ACAO leak issue {endpoint} ({issue['leak_type']}: {issue['detail']}) on {host}",
-            options=["will_fix", "false_positive", "wont_fix", "skip"],
+            message=f"Acknowledge ACAO issue {endpoint} ({issue['weak_type']}: {issue['detail']}) on {host}",
+            options=["false_positive", "wont_fix", "skip"],
             default="skip"
         )
         response = prompt.ask()
-        if response in ["will_fix", "false_positive", "wont_fix"]:
-            issue["status"] = response
-            console.print(f"[green]Marked {endpoint} as {response.replace('_', '-')}[/green]")
-
-    acao_weak_issues = [i for i in state.get("acao-weak", {}).get("issues", []) if i["status"] == "uncategorized"]
-    for issue in acao_weak_issues:
-        endpoint = f"{issue['scheme']}://{issue['hostname']}{issue['endpoint']}"
-        prompt = SingleKeyPrompt(
-            message=f"Acknowledge ACAO weak issue {endpoint} ({issue['weak_type']}: {issue['detail']}) on {host}",
-            options=["will_fix", "false_positive", "wont_fix", "skip"],
-            default="skip"
-        )
-        response = prompt.ask()
-        if response in ["will_fix", "false_positive", "wont_fix"]:
+        if response in ["false_positive", "wont_fix"]:
             issue["status"] = response
             console.print(f"[green]Marked {endpoint} as {response.replace('_', '-')}[/green]")
 

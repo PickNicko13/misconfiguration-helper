@@ -1,11 +1,9 @@
-from .ports import PortsScanner
+from .ports import PortScanner
 from .fuzz import FuzzScanner
-from .acao_leak import AcaoLeakScanner
-from .acao_weak import AcaoWeakScanner
+from .acao import AcaoScanner
 
 SCANNERS = {
-    "ports": PortsScanner,
+    "ports": PortScanner,
     "fuzz": FuzzScanner,
-    "acao-leak": AcaoLeakScanner,
-    "acao-weak": AcaoWeakScanner,
+    "acao": AcaoScanner
 }

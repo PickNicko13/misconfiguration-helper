@@ -6,7 +6,7 @@ from typing import Dict, Any
 import re
 from threading import Lock
 
-class PortsScanner(BaseScanner):
+class PortScanner(BaseScanner):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.ports_scanned = 0

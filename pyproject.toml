@@ -7,10 +7,7 @@ name = "mch"
 version = "0.0.1"
 dependencies = [
     "typer",
-    "click",
     "httpx",
-    "beautifulsoup4",
-    "lxml",
     "tomli",
     "tomli-w",
     "desktop-notifier",
