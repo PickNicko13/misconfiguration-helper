@@ -26,6 +26,37 @@ logger = setup_logging()
 async def send_notification(title: str, message: str):
     await notifier.send(title=title, message=message)
 
+def parse_overrides(overrides: List[str]) -> Dict[str, Dict[str, Any]]:
+    ov_dict = {}
+    for ov in overrides:
+        try:
+            sec, key_val = ov.split(".", 1)
+            key, val = key_val.split("=", 1)
+            if sec not in ov_dict:
+                ov_dict[sec] = {}
+            if sec == "ports" and key == "expected":
+                val = [int(x) for x in val.split(",") if x.strip()]
+            elif sec == "fuzz" and key == "wordlist":
+                val = [x.strip() for x in val.split(",") if x.strip()]
+            elif sec in ("fuzz", "acao") and key in ("endpoints", "malicious_origins"):
+                val = [x.strip() for x in val.split(",") if x.strip()]
+            elif sec == "ports" and key == "range":
+                if not re.match(r"^\d+-\d+$", val):
+                    raise ValueError(f"Invalid port range: {val}")
+                val = str(val)
+            elif sec in ("fuzz", "acao") and key in ("timeout", "delay"):
+                val = float(val)
+            elif sec in ("fuzz", "acao") and key in ("concurrency", "batch_size"):
+                val = int(val)
+            else:
+                val = str(val)
+            ov_dict[sec][key] = val
+        except Exception as e:
+            console.print(f"[red]Invalid override {ov}: {e}[/red]")
+            logger.error(f"Invalid override {ov}: {e}")
+            raise typer.Exit(1)
+    return ov_dict
+
 @app.command()
 def scan(
     types: str = typer.Argument("all", help="Comma-separated scan types (ports, fuzz, acao) or 'all'"),
@@ -49,34 +80,7 @@ def scan(
     config = ConfigManager()
     state_mgr = StateManager()
     if overrides:
-        ov_dict = {}
-        for ov in overrides:
-            try:
-                sec, key_val = ov.split(".", 1)
-                key, val = key_val.split("=", 1)
-                if sec not in ov_dict:
-                    ov_dict[sec] = {}
-                if sec == "ports" and key == "expected":
-                    val = [int(x) for x in val.split(",") if x.strip()]
-                elif sec == "fuzz" and key == "wordlist":
-                    val = [x.strip() for x in val.split(",") if x.strip()]
-                elif sec in ("fuzz", "acao") and key in ("endpoints", "malicious_origins"):
-                    val = [x.strip() for x in val.split(",") if x.strip()]
-                elif sec == "ports" and key == "range":
-                    if not re.match(r"^\d+-\d+$", val):
-                        raise ValueError(f"Invalid port range: {val}")
-                    val = str(val)
-                elif sec in ("fuzz", "acao") and key in ("timeout", "delay"):
-                    val = float(val)
-                elif sec in ("fuzz", "acao") and key in ("concurrency", "batch_size"):
-                    val = int(val)
-                else:
-                    val = str(val)
-                ov_dict[sec][key] = val
-            except Exception as e:
-                console.print(f"[red]Invalid override {ov}: {e}[/red]")
-                logger.error(f"Invalid override {ov}: {e}")
-                raise typer.Exit(1)
+        ov_dict = parse_overrides(overrides)
         config.merge_overrides(ov_dict)
 
     all_hosts = hosts or []
