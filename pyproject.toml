@@ -15,6 +15,12 @@ dependencies = [
     "platformdirs",
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-cov",
+]
+
 [project.scripts]
 mch = "mch.cli:main"
 
