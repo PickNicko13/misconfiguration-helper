@@ -77,6 +77,8 @@ class AcaoScanner(BaseScanner):
                     for acao in acao_values:
                         weak_type = None
                         detail = acao
+                        if (urllib.parse.urlparse(acao).hostname or "") == target:
+                            continue
                         if origin == f"{scheme}://{target}":
                             if acao not in [target, f"http://{target}", f"https://{target}"]:
                                 is_ip = bool(self.extract_ips(acao))
