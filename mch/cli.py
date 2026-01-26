@@ -52,9 +52,8 @@ def parse_overrides(overrides: List[str]) -> Dict[str, Dict[str, Any]]:
                 val = str(val)
             ov_dict[sec][key] = val
         except Exception as e:
-            console.print(f"[red]Invalid override {ov}: {e}[/red]")
-            logger.error(f"Invalid override {ov}: {e}")
-            raise typer.Exit(1)
+            raise ValueError(f"Invalid override '{ov}': {e}") from e
+
     return ov_dict
 
 @app.command()
@@ -80,8 +79,13 @@ def scan(
     config = ConfigManager()
     state_mgr = StateManager()
     if overrides:
-        ov_dict = parse_overrides(overrides)
-        config.merge_overrides(ov_dict)
+        try:
+            ov_dict = parse_overrides(overrides)
+            config.merge_overrides(ov_dict)
+        except ValueError as e:
+            console.print(f"[red]{str(e)}[/red]")
+            logger.error(str(e))
+            raise typer.Exit(1)
 
     all_hosts = hosts or []
     if host_list:
