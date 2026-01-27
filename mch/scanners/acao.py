@@ -85,15 +85,28 @@ class AcaoScanner(BaseScanner):
                                 weak_type = "leaked_ip" if is_ip else "leaked_domain"
                         else:
                             is_arbitrary = acao == origin
-                            is_regex = "*" in acao or acao.endswith(target)
                             if is_arbitrary:
                                 weak_type = "arbitrary"
-                            elif is_regex:
-                                weak_type = "regex"
-                                crafted_origin = f"http://not-{acao.replace('*', '')}" if "*" in acao else f"http://not-{acao}"
-                                test_result, test_acao_values = await self.check_endpoint(client, scheme, target, endpoint, timeout, crafted_origin)
-                                if crafted_origin in test_acao_values:
-                                    detail = f"{acao} (vulnerable to {crafted_origin})"
+                                detail = acao
+                            else:
+                                parsed_acao = urllib.parse.urlparse(acao)
+                                acao_host = parsed_acao.hostname or acao
+
+                                if acao_host and "." in acao_host:
+                                    crafted_origin = f"http://evil-{acao_host}"
+
+                                    _, test_acao_values = await self.check_endpoint(
+                                        client, scheme, target, endpoint, timeout, crafted_origin
+                                    )
+
+                                    if any(acao_host in v or crafted_origin in v for v in test_acao_values):
+                                        weak_type = "broad-reflection"
+                                        detail = f"{acao} (vulnerable to {crafted_origin})"
+                                    else:
+                                        continue
+                                else:
+                                    continue
+
                         if weak_type:
                             issue = {
                                 "scheme": scheme,

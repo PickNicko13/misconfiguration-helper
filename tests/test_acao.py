@@ -62,8 +62,9 @@ async def test_acao_arbitrary_origin(scanner):
 
     issues = scanner.state["acao"]["issues"]
     star_issues = [i for i in issues if i["detail"] == "*"]
-    assert len(star_issues) > 0
-    assert len(star_issues) == 12  # 3 endpoints * 2 schemas * 2 origins
+
+    expected_count = 3 * 2  # 3 endpoints * 2 schemas
+    assert len(star_issues) == expected_count
 
 
 @pytest.mark.asyncio
@@ -148,3 +149,122 @@ async def test_acao_probe_failure(scanner):
     await scanner.run_async()
 
     assert len(scanner.state["acao"]["issues"]) == 0
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_acao_leaked_domain_on_own_origin(scanner):
+    """Перевірка, що при власному origin і ACAO != власний домен — додається leaked_domain"""
+    mock_all_heads(respx, "http://internal.secret.com")  # не збігається з test.local
+
+    await scanner.run_async()
+
+    issues = scanner.state["acao"]["issues"]
+    leaked_issues = [i for i in issues if i["weak_type"] == "leaked_domain"]
+    assert len(leaked_issues) > 0
+    assert "internal.secret.com" in leaked_issues[0]["detail"]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_acao_arbitrary_from_malicious_origin(scanner):
+    respx.head("http://test.local/").mock(
+        return_value=httpx.Response(200, headers={"Access-Control-Allow-Origin": "http://evil.com"})
+    )
+    for scheme in SCHEMES:
+        for endpoint in ENDPOINTS:
+            if scheme == "http" and endpoint == "/":
+                continue
+            respx.head(f"{scheme}://test.local{endpoint}").mock(
+                side_effect=httpx.ConnectError("fallback")
+            )
+
+    await scanner.run_async()
+
+    issues = scanner.state["acao"]["issues"]
+    arbitrary_issues = [i for i in issues if i["weak_type"] == "arbitrary"]
+    assert len(arbitrary_issues) > 0
+    assert arbitrary_issues[0]["detail"] == "http://evil.com"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_acao_broad_reflection(scanner):
+    acao = "example.com"
+    crafted = "http://evil-example.com"
+
+    for origin in ORIGINS:
+        respx.head("http://test.local/").mock(
+            return_value=httpx.Response(200, headers={"Access-Control-Allow-Origin": acao})
+        )
+
+    respx.head("http://test.local/").mock(
+        return_value=httpx.Response(200, headers={"Access-Control-Allow-Origin": acao})
+    )
+
+    for scheme in SCHEMES:
+        for endpoint in ["/api", "/admin"]:
+            respx.head(f"{scheme}://test.local{endpoint}").mock(
+                side_effect=httpx.ConnectError("fallback")
+            )
+    respx.head("https://test.local/").mock(side_effect=httpx.ConnectError("fallback"))
+
+    await scanner.run_async()
+
+    issues = scanner.state["acao"]["issues"]
+    broad_issues = [i for i in issues if i["weak_type"] == "broad-reflection"]
+    assert len(broad_issues) > 0
+    assert f"vulnerable to {crafted}" in broad_issues[0]["detail"]
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_acao_state_persistence_and_status_change(mocker):
+    config = ConfigManager()
+    config.config = {
+        "acao": {
+            "endpoints": ["/", "/api", "/admin"],
+            "malicious_origins": ["http://malicious-{domain}", "http://evil.com"],
+            "timeout": 1.0
+        }
+    }
+    state_mgr = MagicMock(spec=StateManager)
+
+    initial_issue = {
+        "scheme": "http",
+        "hostname": "test.local",
+        "endpoint": "/",
+        "weak_type": "arbitrary",
+        "detail": "*",
+        "status": "uncategorized"
+    }
+    initial_state = {"acao": {"issues": [initial_issue.copy()]}}
+    mocker.patch.object(state_mgr, "load_state", return_value=initial_state)
+
+    scanner = AcaoScanner("test.local", config, state_mgr, False)
+
+    mock_all_heads(respx, "http://test.local")
+
+    await scanner.run_async()
+
+    issues = scanner.state["acao"]["issues"]
+    assert len(issues) == 1
+    assert issues[0]["status"] == "resolved"
+    assert issues[0]["detail"] == "*"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_acao_handle_issue_existing_uncategorized(scanner):
+    existing = {
+        "scheme": "http",
+        "hostname": "test.local",
+        "endpoint": "/",
+        "weak_type": "arbitrary",
+        "detail": "*",
+        "status": "uncategorized"
+    }
+    scanner.state["acao"]["issues"] = [existing]
+
+    issue = existing.copy()
+
+    handled = scanner._handle_issue(issue, scanner.state["acao"]["issues"], "http://test.local/", "*", "*")
+    assert handled is None
