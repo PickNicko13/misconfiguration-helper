@@ -58,8 +58,23 @@ ruff check .
 To automatically fix issues and format the code:
 
 ```bash
-ruff check --fix .
-ruff format .
+ruff check --fix
+ruff format
+```
+
+## Static Type Checking: ty
+
+We use **ty** (by Astral) for lightning-fast static type checking.
+
+### Rationale
+- **Performance**: Written in Rust, `ty` is significantly faster than traditional type checkers like MyPy.
+- **Modern Standards**: It provides advanced type inference and rich diagnostics.
+- **Ecosystem Fit**: As an Astral tool, it integrates seamlessly with Ruff and uv.
+
+### Running ty
+To perform type checking manually:
+```bash
+ty check
 ```
 
 ## Automation
@@ -67,10 +82,10 @@ ruff format .
 To ensure code quality is maintained consistently, linting is integrated into the development workflow:
 
 ### 1. GitHub Actions (CI)
-A CI workflow is configured in `.github/workflows/lint.yml`. It automatically runs `ruff check` and `ruff format --check` on every push and pull request to the `main` or `master` branches.
+A CI workflow is configured in `.github/workflows/lint.yml`. It automatically runs Ruff checks and `ty` type checking on every push and pull request.
 
 ### 2. Pre-commit Hooks
-The project includes a `.pre-commit-config.yaml` file. You can set up local git hooks to run the linter and other checks automatically before every commit:
+The project includes a `.pre-commit-config.yaml` file. Ruff is already integrated; `ty` can be added to ensure types are checked before every commit.
 
 ```bash
 # Install pre-commit
@@ -81,11 +96,16 @@ pre-commit install
 ```
 
 ### 3. Build Process Integration
-Linting is integrated directly into the Python package build process. This is achieved via a custom command in `setup.py` that hooks into `build_py`.
+Static analysis and type checking are integrated directly into the Python package build process via `setup.py`.
 
-When you run a build command (e.g., `python -m build` or `pip install .`), Ruff will automatically run both its check and format-check. If any issues are found, the build process will be aborted.
+When you run a build command (e.g., `python -m build` or `pip install .`), the following sequence occurs:
+1. `ruff check` (Linting)
+2. `ruff format` (Formatting)
+3. `ty check` (Static Type Checking)
 
-To support this, `ruff` is included in the `[build-system]` requirements in `pyproject.toml`.
+If any check fails (especially type checking), the build process will be aborted.
+
+To support this, `ruff` and `ty` are included in the `[build-system]` requirements in `pyproject.toml`.
 
 ## Installation
 

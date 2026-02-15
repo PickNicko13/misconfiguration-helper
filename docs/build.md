@@ -29,7 +29,8 @@ As part of our commitment to code quality, **linting is mandatory during the bui
 When you run `python -m build` (or `pip install .`), the following steps occur automatically via our custom `setup.py` hooks:
 
 1.  **Ruff Check**: Runs linting rules to identify potential bugs and anti-patterns.
-2.  **Ruff Format Check**: Verifies that the code adheres to our styling standards (tabs, single quotes, etc.).
+2.  **Ruff Format**: Automatically formats the code to adhere to our styling standards.
+3.  **Static Type Check (ty check)**: Verifies type safety using the lightning-fast `ty` checker.
 
 **If any of these checks fail, the build process will terminate immediately with an error**, and no package will be created. This ensures that every released version of MCH meets our quality standards.
 

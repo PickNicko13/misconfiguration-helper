@@ -17,11 +17,14 @@ jobs:
         with:
           python-version: "3.14"
 
-      - name: Install Ruff
-        run: pip install ruff
+      - name: Install Ruff and ty
+        run: pip install ruff ty
 
       - name: Run Ruff Check
         run: ruff check
 
       - name: Run Ruff Format Check
         run: ruff format --check
+
+      - name: Run Static Type Check (ty check)
+        run: ty check

@@ -11,8 +11,10 @@ class BuildPyCommand(build_py):
 		try:
 			print('Running ruff check...')
 			subprocess.check_call(['ruff', 'check'])
-			print('Running ruff format check...')
+			print('Running ruff format...')
 			subprocess.check_call(['ruff', 'format'])
+			print('Running static type checking (ty check)...')
+			subprocess.check_call(['ty', 'check'])
 		except subprocess.CalledProcessError as e:
 			print(f'Linting failed with exit code {e.returncode}. Aborting build.')
 			sys.exit(e.returncode)

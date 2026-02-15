@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "ruff"]
+requires = ["setuptools", "ruff", "ty"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -24,7 +24,8 @@ test = [
 	"respx"
 ]
 lint = [
-    "ruff"
+    "ruff",
+    "ty"
 ]
 dev = [
     "mch[test,lint]",
