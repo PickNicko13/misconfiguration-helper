@@ -59,7 +59,12 @@ class SingleKeyPrompt:
 			self.console.print(
 				'[yellow]Non-interactive mode: using text input[/yellow]'
 			)
-			return Prompt.ask(self.message, choices=self.options, default=self.default)
+			result = Prompt.ask(
+				self.message, choices=self.options, default=self.default
+			)
+			if result is None:
+				return self.ask()
+			return result
 
 		if sys.platform == 'win32':
 			self.console.print(self._render_prompt(), end=' ')
@@ -94,6 +99,9 @@ class SingleKeyPrompt:
 		self.console.print(
 			'[yellow]Single-keypress input not available, using text input[/yellow]'
 		)
-		return Prompt.ask(
+		result = Prompt.ask(
 			self._render_prompt(), choices=self.options, default=self.default
 		)
+		if result is None:
+			return self.ask()
+		return result

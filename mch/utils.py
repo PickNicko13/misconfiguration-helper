@@ -1,3 +1,4 @@
+from typing import Any
 import typer
 from pathlib import Path
 from platformdirs import user_data_dir
@@ -10,7 +11,7 @@ from rich.console import Console
 console = Console()
 
 
-def validate_target(target: str) -> str:
+def validate_target(target: Any) -> str:
 	if not isinstance(target, str):
 		typer.echo(f'Invalid target: {target} (must be a string)', err=True)
 		raise typer.Exit(1)

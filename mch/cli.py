@@ -117,7 +117,7 @@ def scan(
 		logger.error('No hosts provided')
 		raise typer.Exit(1)
 
-	scan_types = SCANNERS.keys() if types == 'all' else types.split(',')
+	scan_types = list(SCANNERS.keys()) if types == 'all' else types.split(',')
 	invalid_types = set(scan_types) - set(SCANNERS)
 	if invalid_types:
 		console.print(f'[red]Invalid scan types: {invalid_types}[/red]')
