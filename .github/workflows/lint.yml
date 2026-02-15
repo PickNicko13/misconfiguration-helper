@@ -17,14 +17,16 @@ jobs:
         with:
           python-version: "3.14"
 
-      - name: Install Ruff and ty
-        run: pip install ruff ty
+      - name: Create venv and install dependencies
+        run: |
+          python -m venv venv
+          ./venv/bin/pip install .[lint]
 
       - name: Run Ruff Check
-        run: ruff check
+        run: ./venv/bin/ruff check
 
       - name: Run Ruff Format Check
-        run: ruff format --check
+        run: ./venv/bin/ruff format --check
 
       - name: Run Static Type Check (ty check)
-        run: ty check
+        run: ./venv/bin/ty check
