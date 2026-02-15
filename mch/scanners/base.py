@@ -7,19 +7,26 @@ from typing import Dict, Any
 
 console = Console()
 
+
 class BaseScanner(ABC):
-    def __init__(self, target: str, config: ConfigManager, state_mgr: StateManager, warn_html_errors: bool = False):
-        self.target = target
-        self.config = config
-        self.state_mgr = state_mgr
-        self.state = self.state_mgr.load_state(target)
-        self.warn_html_errors = warn_html_errors
-        self.logger = setup_logging()
+	def __init__(
+		self,
+		target: str,
+		config: ConfigManager,
+		state_mgr: StateManager,
+		warn_html_errors: bool = False,
+	):
+		self.target = target
+		self.config = config
+		self.state_mgr = state_mgr
+		self.state = self.state_mgr.load_state(target)
+		self.warn_html_errors = warn_html_errors
+		self.logger = setup_logging()
 
-    @abstractmethod
-    async def run_async(self) -> Dict[str, Any]:
-        """Perform scan asynchronously, update state, return results/warnings."""
-        pass
+	@abstractmethod
+	async def run_async(self) -> Dict[str, Any]:
+		"""Perform scan asynchronously, update state, return results/warnings."""
+		pass
 
-    def save(self):
-        self.state_mgr.save_state(self.target, self.state)
+	def save(self):
+		self.state_mgr.save_state(self.target, self.state)
