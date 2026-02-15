@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools", "ruff"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -22,6 +22,13 @@ test = [
 	"pytest-asyncio",
 	"pytest-mock",
 	"respx"
+]
+lint = [
+    "ruff"
+]
+dev = [
+    "mch[test,lint]",
+    "pre-commit"
 ]
 
 [project.scripts]
