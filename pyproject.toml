@@ -24,6 +24,7 @@ test = [
 	"respx"
 ]
 lint = [
+    "mch[test]",
     "ruff",
     "ty"
 ]
