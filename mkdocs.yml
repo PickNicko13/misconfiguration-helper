@@ -1,0 +1,56 @@
+site_name: MCH - Misconfiguration Scanner
+site_description: A command-line tool for identifying security misconfigurations.
+site_author: PickNicko13
+repo_url: https://github.com/PickNicko13/misconfiguration-helper
+
+theme:
+  name: terminal
+  palette: gruvbox_dark
+
+extra_css:
+  - stylesheets/extra.css
+
+strict: true
+
+nav:
+  - Home: index.md
+  - Usage: usage.md
+  - Development:
+    - Architecture: architecture.md
+    - Building: build.md
+    - Linting & Quality: linting.md
+    - Documentation: generate_docs.md
+    - Core Concepts: concepts.md
+  - API Reference:
+    - API Overview: api/overview.md
+    - "Scanner: Base Interface": api/scanners/base.md
+    - "Scanner: ACAO": api/scanners/acao.md
+    - "Scanner: Fuzz": api/scanners/fuzz.md
+    - "Scanner: Port": api/scanners/ports.md
+    - "Core: Configuration": api/core/config.md
+    - "Core: State Management": api/core/state.md
+    - "Core: Utilities": api/core/utils.md
+
+plugins:
+  - search:
+      prebuild_index: true
+      min_search_length: 2
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: ["."]
+  - mkdocs-typer2:
+      pretty: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+      pygments_lang_class: true
+      use_pygments: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables

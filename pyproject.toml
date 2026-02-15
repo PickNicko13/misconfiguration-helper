@@ -29,8 +29,14 @@ lint = [
     "ty"
 ]
 dev = [
-    "mch[test,lint]",
+    "mch[test,lint,docs]",
     "pre-commit"
+]
+docs = [
+    "mkdocs",
+    "mkdocs-terminal",
+    "mkdocstrings[python]",
+    "mkdocs-typer2"
 ]
 
 [project.scripts]
@@ -53,6 +59,17 @@ line-length = 88
 target-version = "py314"
 
 [tool.ruff.lint]
+select = [
+    "E4", "E7", "E9", "F",  # Default Ruff rules
+    "D",                    # pydocstyle (Docstrings)
+    "UP",                   # pyupgrade
+]
+ignore = [
+    "D203", # one-blank-line-before-class
+    "D206", # spaces in docstring
+    "D213", # multi-line-summary-second-line
+]
+
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
@@ -66,12 +83,10 @@ skip-magic-trailing-comma = false
 # Use `\n` line endings for all files
 line-ending = "lf"
 
-# Enable auto-formatting of code examples in docstrings. Markdown,
-# reStructuredText code/literal blocks and doctests are all supported.
+# Enable auto-formatting of code examples in docstrings.
 docstring-code-format = true
 
-# Set the line length limit used when formatting code snippets in
-# docstrings.
+# Set the line length limit used when formatting code snippets in docstrings.
 docstring-code-line-length = 60
 
 [tool.ty.src]

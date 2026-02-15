@@ -1,3 +1,5 @@
+"""Unit tests for the MCH command line interface."""
+
 import pytest
 from typer.testing import CliRunner
 from unittest.mock import patch, MagicMock
@@ -8,6 +10,7 @@ runner = CliRunner()
 
 
 def test_update_status_formats_all_scanners():
+	"""Test that update_status correctly formats descriptions for all scanners."""
 	progress = Progress()
 	task_id = progress.add_task('test', total=3)
 	tasks = {'example.com': task_id}
@@ -29,6 +32,7 @@ def test_update_status_formats_all_scanners():
 
 
 def test_update_status_empty_status():
+	"""Test that update_status handles an empty status dictionary."""
 	progress = Progress()
 	task_id = progress.add_task('test', total=0)
 	tasks = {'localhost': task_id}
@@ -43,36 +47,42 @@ def test_update_status_empty_status():
 
 
 def test_parse_ports_expected():
+	"""Test parsing of the 'ports.expected' override."""
 	overrides = ['ports.expected=80,443,22']
 	result = parse_overrides(overrides)
 	assert result == {'ports': {'expected': [80, 443, 22]}}
 
 
 def test_parse_invalid_range_raises():
+	"""Ensure that an invalid port range raises a ValueError."""
 	overrides = ['ports.range=abc']
 	with pytest.raises(ValueError, match='Invalid port range: abc'):
 		parse_overrides(overrides)
 
 
 def test_parse_overrides_ports_expected():
+	"""Secondary test for parsing 'ports.expected' overrides."""
 	overrides = ['ports.expected=80,443,22']
 	result = parse_overrides(overrides)
 	assert result == {'ports': {'expected': [80, 443, 22]}}
 
 
 def test_parse_overrides_fuzz_wordlist():
+	"""Test parsing of the 'fuzz.wordlist' override."""
 	overrides = ['fuzz.wordlist=/tmp/custom.txt,/tmp/extra.txt']
 	result = parse_overrides(overrides)
 	assert result == {'fuzz': {'wordlist': ['/tmp/custom.txt', '/tmp/extra.txt']}}
 
 
 def test_parse_overports_range():
+	"""Test parsing of the 'ports.range' override."""
 	overrides = ['ports.range=1000-2000']
 	result = parse_overrides(overrides)
 	assert result == {'ports': {'range': '1000-2000'}}
 
 
 def test_parse_multiple_sections():
+	"""Test parsing multiple overrides across different sections."""
 	overrides = ['ports.timeout=2.5', 'fuzz.concurrency=100']
 	result = parse_overrides(overrides)
 	assert result == {'ports': {'timeout': '2.5'}, 'fuzz': {'concurrency': 100}}
@@ -82,6 +92,7 @@ def test_parse_multiple_sections():
 @patch('mch.cli.ConfigManager')
 @patch('mch.cli.StateManager')
 def test_scan_all_types(mock_state_mgr, mock_config, mock_asyncio_run):
+	"""Test the 'scan' command with all scan types enabled."""
 	mock_config.return_value = MagicMock()
 	mock_state_mgr.return_value = MagicMock()
 
@@ -93,6 +104,7 @@ def test_scan_all_types(mock_state_mgr, mock_config, mock_asyncio_run):
 
 @patch('mch.cli.asyncio.run')
 def test_scan_with_override(mock_asyncio_run):
+	"""Test the 'scan' command with a dynamic configuration override."""
 	result = runner.invoke(
 		app, ['scan', 'ports', 'test.local', '--override', 'ports.range=80-90']
 	)
@@ -102,6 +114,7 @@ def test_scan_with_override(mock_asyncio_run):
 
 
 def test_scan_no_hosts():
+	"""Ensure that the 'scan' command fails if no hosts are provided."""
 	result = runner.invoke(app, ['scan', 'all'])
 	assert result.exit_code != 0
 	assert 'No hosts provided' in result.stdout
@@ -109,6 +122,7 @@ def test_scan_no_hosts():
 
 @patch('mch.cli.StateManager')
 def test_report_warnings(mock_state_mgr):
+	"""Test the 'report' command with the 'warnings' filter."""
 	mock_state = {
 		'ports': {'current_open': [80, 8080], 'acknowledged': [80]},
 		'fuzz': {'issues': ['/admin'], 'will_fix': []},
@@ -137,6 +151,7 @@ def test_report_warnings(mock_state_mgr):
 
 @patch('mch.cli.StateManager')
 def test_report_warnings_handles_broken_acao_issue(mock_state_mgr):
+	"""Ensure that the 'report' command handles malformed ACAO issues in state."""
 	mock_state = {
 		'ports': {'current_open': [], 'acknowledged': []},
 		'fuzz': {'issues': []},
@@ -152,6 +167,7 @@ def test_report_warnings_handles_broken_acao_issue(mock_state_mgr):
 @patch('mch.cli.sys.stdout.isatty')
 @patch('mch.cli.StateManager')
 def test_ack_non_tty_mode(mock_state_mgr, mock_isatty):
+	"""Test the 'ack' command in a non-interactive (non-TTY) environment."""
 	mock_isatty.return_value = False  # non-interactive mode
 	mock_state = {'ports': {'current_open': [8080], 'acknowledged': []}}
 	mock_state_mgr.return_value.load_state.return_value = mock_state

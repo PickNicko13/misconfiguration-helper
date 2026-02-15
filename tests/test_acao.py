@@ -1,3 +1,5 @@
+"""Unit tests for the AcaoScanner in the MCH project."""
+
 import pytest
 import respx
 import httpx
@@ -9,6 +11,7 @@ from mch.state import StateManager
 
 @pytest.fixture
 def config():
+	"""Provide a mock configuration for ACAO tests."""
 	cfg = ConfigManager()
 	cfg.config = {
 		'acao': {
@@ -22,6 +25,7 @@ def config():
 
 @pytest.fixture
 def state_mgr(mocker):
+	"""Provide a mock state manager for ACAO tests."""
 	mgr = MagicMock(spec=StateManager)
 	mgr.load_state.return_value = {'acao': {'issues': []}}
 	return mgr
@@ -29,6 +33,7 @@ def state_mgr(mocker):
 
 @pytest.fixture
 def scanner(config, state_mgr):
+	"""Provide an AcaoScanner instance for testing."""
 	return AcaoScanner('test.local', config, state_mgr, False)
 
 
@@ -45,6 +50,7 @@ ORIGINS = [
 
 
 def mock_all_heads(respx_mock, acao_header: str, status=200):
+	"""Mock HEAD requests for all matching endpoints and schemes."""
 	for scheme in SCHEMES:
 		for endpoint in ENDPOINTS:
 			url = f'{scheme}://test.local{endpoint}'
@@ -59,6 +65,7 @@ def mock_all_heads(respx_mock, acao_header: str, status=200):
 @pytest.mark.asyncio
 @respx.mock
 async def test_acao_arbitrary_origin(scanner):
+	"""Test detection of arbitrary Origin reflection (ACAO: *)."""
 	mock_all_heads(respx, '*')
 	await scanner.run_async()
 
@@ -72,6 +79,7 @@ async def test_acao_arbitrary_origin(scanner):
 @pytest.mark.asyncio
 @respx.mock
 async def test_acao_leaked_ip(scanner):
+	"""Test detection of internal IP leakage in ACAO headers."""
 	leaked_ip = '192.168.1.10'
 	mock_all_heads(respx, f'http://{leaked_ip}')
 	await scanner.run_async()
@@ -84,6 +92,7 @@ async def test_acao_leaked_ip(scanner):
 @pytest.mark.asyncio
 @respx.mock
 async def test_acao_regex_vulnerable(scanner):
+	"""Test detection of overly broad regex-based Origin reflection."""
 	regex = 'http://.*.evil.com'
 	mock_all_heads(respx, regex)
 	await scanner.run_async()
@@ -96,6 +105,7 @@ async def test_acao_regex_vulnerable(scanner):
 @pytest.mark.asyncio
 @respx.mock
 async def test_acao_safe_origin_does_not_add_issue(scanner):
+	"""Ensure that legitimate Origin reflection does not trigger issues."""
 	mock_all_heads(respx, 'http://test.local')
 	await scanner.run_async()
 
@@ -106,6 +116,7 @@ async def test_acao_safe_origin_does_not_add_issue(scanner):
 @pytest.mark.asyncio
 @respx.mock
 async def test_acao_multiple_endpoints(scanner):
+	"""Test ACAO scanning across multiple endpoints simultaneously."""
 	for scheme in ['http']:
 		for endpoint in ENDPOINTS:
 			url = f'{scheme}://test.local{endpoint}'
@@ -149,6 +160,7 @@ async def test_acao_multiple_endpoints(scanner):
 @pytest.mark.asyncio
 @respx.mock
 async def test_acao_probe_failure(scanner):
+	"""Ensure scanner handles connection failures gracefully."""
 	for scheme in SCHEMES:
 		for endpoint in ENDPOINTS:
 			url = f'{scheme}://test.local{endpoint}'
@@ -162,7 +174,7 @@ async def test_acao_probe_failure(scanner):
 @pytest.mark.asyncio
 @respx.mock
 async def test_acao_leaked_domain_on_own_origin(scanner):
-	"""Перевірка, що при власному origin і ACAO != власний домен — додається leaked_domain"""
+	"""Verify that leaked_domain is added when ACAO doesn't match own origin."""
 	mock_all_heads(respx, 'http://internal.secret.com')  # не збігається з test.local
 
 	await scanner.run_async()
@@ -176,6 +188,7 @@ async def test_acao_leaked_domain_on_own_origin(scanner):
 @pytest.mark.asyncio
 @respx.mock
 async def test_acao_arbitrary_from_malicious_origin(scanner):
+	"""Test detection of reflection from configured malicious origins."""
 	respx.head('http://test.local/').mock(
 		return_value=httpx.Response(
 			200, headers={'Access-Control-Allow-Origin': 'http://evil.com'}
@@ -200,6 +213,7 @@ async def test_acao_arbitrary_from_malicious_origin(scanner):
 @pytest.mark.asyncio
 @respx.mock
 async def test_acao_broad_reflection(scanner):
+	"""Test detection of broad-reflection (e.g., prefix/suffix matching)."""
 	acao = 'example.com'
 	crafted = 'http://evil-example.com'
 
@@ -232,6 +246,7 @@ async def test_acao_broad_reflection(scanner):
 @pytest.mark.asyncio
 @respx.mock
 async def test_acao_state_persistence_and_status_change(mocker):
+	"""Test that issue statuses transition correctly (e.g., to 'resolved')."""
 	config = ConfigManager()
 	config.config = {
 		'acao': {
@@ -268,6 +283,7 @@ async def test_acao_state_persistence_and_status_change(mocker):
 @pytest.mark.asyncio
 @respx.mock
 async def test_acao_handle_issue_existing_uncategorized(scanner):
+	"""Ensure existing uncategorized issues are not duplicated."""
 	existing = {
 		'scheme': 'http',
 		'hostname': 'test.local',

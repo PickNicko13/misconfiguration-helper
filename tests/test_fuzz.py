@@ -1,3 +1,5 @@
+"""Unit tests for the FuzzScanner in the MCH project."""
+
 import pytest
 import respx
 import httpx
@@ -9,6 +11,7 @@ from mch.state import StateManager
 
 @pytest.fixture
 def config(tmp_path):
+	"""Provide a mock configuration and temporary wordlist for fuzzing tests."""
 	cfg = ConfigManager()
 	wordlist_path = tmp_path / 'wordlist.txt'
 	wordlist_path.write_text('admin\nphpmyadmin\nbackup\n.env\nconfig\n')
@@ -26,6 +29,7 @@ def config(tmp_path):
 
 @pytest.fixture
 def state_mgr(mocker):
+	"""Provide a mock state manager for fuzzing tests."""
 	mgr = MagicMock(spec=StateManager)
 	mgr.load_state.return_value = {
 		'fuzz': {'issues': [], 'false_positive': [], 'wont_fix': []}
@@ -35,6 +39,7 @@ def state_mgr(mocker):
 
 @pytest.fixture
 def scanner(config, state_mgr):
+	"""Provide a FuzzScanner instance for testing."""
 	return FuzzScanner(
 		target='test.local', config=config, state_mgr=state_mgr, warn_html_errors=False
 	)
@@ -62,6 +67,7 @@ ALL_PATHS = [
 @pytest.mark.asyncio
 @respx.mock
 async def test_fuzz_finds_real_file(scanner):
+	"""Test that FuzzScanner correctly identifies existing files on the target."""
 	respx.head('http://test.local/').mock(return_value=httpx.Response(200))
 	respx.head('https://test.local/').mock(return_value=httpx.Response(404))
 
@@ -84,6 +90,7 @@ async def test_fuzz_finds_real_file(scanner):
 @pytest.mark.asyncio
 @respx.mock
 async def test_fuzz_detects_redirects(scanner):
+	"""Test that FuzzScanner treats HTTP redirects as found paths."""
 	respx.head('http://test.local/').mock(return_value=httpx.Response(200))
 	respx.head('https://test.local/').mock(return_value=httpx.Response(404))
 
@@ -105,6 +112,7 @@ async def test_fuzz_detects_redirects(scanner):
 @pytest.mark.asyncio
 @respx.mock
 async def test_fuzz_ignores_fake_404_page(scanner):
+	"""Ensure that FuzzScanner filters out custom 404 pages using body content."""
 	respx.head('http://test.local/').mock(return_value=httpx.Response(200))
 	respx.head('https://test.local/').mock(return_value=httpx.Response(404))
 
@@ -124,6 +132,7 @@ async def test_fuzz_ignores_fake_404_page(scanner):
 @pytest.mark.asyncio
 @respx.mock
 async def test_fuzz_skips_unavailable_scheme(scanner):
+	"""Ensure FuzzScanner skips schemes (HTTP/HTTPS) that are unresponsive."""
 	respx.head('http://test.local/').mock(return_value=httpx.Response(200))
 	respx.head('https://test.local/').mock(return_value=httpx.Response(404))
 
@@ -144,6 +153,7 @@ async def test_fuzz_skips_unavailable_scheme(scanner):
 @pytest.mark.asyncio
 @respx.mock
 async def test_fuzz_respects_concurrency_limit(scanner, mocker):
+	"""Verify that FuzzScanner correctly applies the concurrency semaphore."""
 	semaphore_mock = mocker.patch('asyncio.Semaphore', autospec=True)
 	semaphore_mock.return_value = mocker.AsyncMock()
 
@@ -164,6 +174,7 @@ async def test_fuzz_respects_concurrency_limit(scanner, mocker):
 @pytest.mark.asyncio
 @respx.mock
 async def test_fuzz_saves_to_state(scanner):
+	"""Ensure that identified paths are correctly saved to the scanner's state."""
 	respx.head('http://test.local/').mock(return_value=httpx.Response(200))
 	respx.head('https://test.local/').mock(return_value=httpx.Response(404))
 

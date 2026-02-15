@@ -1,8 +1,14 @@
+"""ACAO (Access-Control-Allow-Origin) header analysis for the MCH project.
+
+This module provides the `AcaoScanner` class, which probes target endpoints
+with various `Origin` headers to detect CORS misconfigurations.
+"""
+
 import asyncio
 import httpx
 from .base import BaseScanner
 from mch.utils import setup_logging
-from typing import Dict, Any, List
+from typing import Any
 import urllib.parse
 import ipaddress
 import re
@@ -10,7 +16,22 @@ from threading import Lock
 
 
 class AcaoScanner(BaseScanner):
+	"""Asynchronously probes endpoints for CORS vulnerabilities.
+
+	The scanner tests for:
+	- Arbitrary origin reflection (allowing any Origin).
+	- Broad origin reflection (leaking internal domains).
+	- Leaked IPs/Internal hostnames in header values.
+
+	Attributes:
+		endpoints_scanned (int): Number of probes sent in this session.
+		total_endpoints (int): Calculated total of probes to be sent.
+		run_result (Dict): Findings from the last completed scan.
+
+	"""
+
 	def __init__(self, *args, **kwargs):
+		"""Initialize the AcaoScanner with default values."""
 		super().__init__(*args, **kwargs)
 		self.endpoints_scanned = 0
 		self.total_endpoints = 0
@@ -19,7 +40,13 @@ class AcaoScanner(BaseScanner):
 		self._lock = Lock()
 		self.logger = setup_logging()
 
-	async def run_async(self) -> Dict[str, Any]:
+	async def run_async(self) -> dict[str, Any]:
+		"""Execute the ACAO scan asynchronously across multiple endpoints and schemas.
+
+		Returns:
+			Dict[str, Any]: A list of detected `issues` and their details.
+
+		"""
 		results = {'issues': []}
 		self.logger.debug(f'Starting AcaoScanner for target: {self.target}')
 		target = str(self.target)
@@ -274,7 +301,21 @@ class AcaoScanner(BaseScanner):
 		endpoint: str,
 		timeout: float,
 		origin: str,
-	) -> tuple[str, List[str]]:
+	) -> tuple[str, list[str]]:
+		"""Attempt to check an endpoint with specific Origin header.
+
+		Args:
+			client: Async HTTPX client instance.
+			scheme: Target scheme (http/https).
+			target: hostname or IP.
+			endpoint: Target absolute or relative path.
+			timeout: Connection/Response timeout in seconds.
+			origin: The custom `Origin` header to test.
+
+		Returns:
+			tuple[str, List[str]]: A tuple of (full_url, list_of_ACAO_values).
+
+		"""
 		self.logger.debug(
 			f'Checking {scheme} endpoint {endpoint} on {target} with origin {origin}'
 		)
@@ -333,12 +374,26 @@ class AcaoScanner(BaseScanner):
 
 	def _handle_issue(
 		self,
-		issue: Dict,
-		state_issues: List[Dict],
+		issue: dict,
+		state_issues: list[dict],
 		endpoint: str,
 		detail: str,
 		acao: str,
-	) -> Dict | None:
+	) -> dict | None:
+		"""Core logic for identifying new issues or re-triggering existing ones.
+
+		Args:
+			issue: Proposed new issue dictionary.
+			state_issues: Existing issues for this scanner from persistent state.
+			endpoint: The probed URL.
+			detail: Formatted vulnerability detail.
+			acao: The exact value returned in the ACAO header.
+
+		Returns:
+			Dict | None: The issue to be added/updated in the state,
+				or None if no action is needed.
+
+		"""
 		issue_key = (
 			issue['scheme'],
 			issue['hostname'],
@@ -387,7 +442,16 @@ class AcaoScanner(BaseScanner):
 		self.logger.warning(f'New acao issue ({detail}) on {endpoint}: ACAO={acao}')
 		return issue
 
-	def extract_ips(self, text: str) -> List[str]:
+	def extract_ips(self, text: str) -> list[str]:
+		"""Help to find all valid IPv4 addresses in a string.
+
+		Args:
+			text: Any string content.
+
+		Returns:
+			List[str]: A list of valid IP addresses found.
+
+		"""
 		ip_pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}\b'
 		matches = re.findall(ip_pattern, text)
 		valid_ips = []
@@ -400,6 +464,12 @@ class AcaoScanner(BaseScanner):
 		return valid_ips
 
 	def get_progress(self) -> str:
+		"""Return a formatted progress string for the ACAO scan.
+
+		Returns:
+			str: A string like ' 12/400'.
+
+		"""
 		with self._lock:
 			if self.total_endpoints > 0:
 				return f' {self.endpoints_scanned}/{self.total_endpoints}'

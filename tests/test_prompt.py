@@ -1,8 +1,11 @@
+"""Unit tests for the SingleKeyPrompt in the MCH project."""
+
 import pytest
 from mch.prompt import SingleKeyPrompt
 
 
 def test_assign_keys_unique_letters():
+	"""Test that keys are uniquely assigned to options."""
 	prompt = SingleKeyPrompt(
 		message='Choose action',
 		options=['acknowledge', 'false_positive', 'wont_fix', 'skip'],
@@ -21,6 +24,7 @@ def test_assign_keys_unique_letters():
 
 
 def test_assign_keys_uses_first_unique_letter():
+	"""Ensure that the first available unique letter in an option is used as its key."""
 	prompt = SingleKeyPrompt(message='Test', options=['save', 'skip', 'show'])
 	key_map = prompt.key_map
 
@@ -30,11 +34,13 @@ def test_assign_keys_uses_first_unique_letter():
 
 
 def test_assign_keys_raises_when_no_unique_letter():
+	"""Verify that a ValueError is raised if no unique letters can be assigned."""
 	with pytest.raises(ValueError, match='No unique letter available for option'):
 		SingleKeyPrompt(message='Conflict', options=['aa', 'ab', 'bb'])
 
 
 def test_render_prompt_underlines_correct_letter():
+	"""Test that the rendered prompt correctly underlines the shortcut keys."""
 	prompt = SingleKeyPrompt(message='Select', options=['acknowledge', 'skip'])
 	rendered = prompt._render_prompt()
 

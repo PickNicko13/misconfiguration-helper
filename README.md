@@ -33,92 +33,43 @@ pip install .
 
 ## Usage
 
-MCH provides three main commands: `scan`, `report`, and `ack`. Run `mch --help` for details.
+MCH provides three main commands: `scan`, `report`, and `ack`. For a complete reference of all arguments and flags, see the [Full Usage Guide](docs/usage.md).
 
-### Scan
+### Quick Start Examples
 
-Scan hosts for misconfigurations:
+- **Scan a host**: `mch scan all pma.localhost`
+- **Scan with overrides**: `mch scan acao target.com --override acao.timeout=10.0`
+- **View issues**: `mch report pma.localhost --type warnings`
+- **Acknowledge issues**: `mch ack pma.localhost`
 
-```bash
-mch scan [TYPES] [HOSTS] [OPTIONS]
-```
+## Configuration and State
 
-- **Types**: Comma-separated scan types (`ports`, `fuzz`, `acao`) or `all` (default).
-- **Hosts**: One or more target hosts (IP or URL).
-- **Options**:
-  - `--host-list FILE`: File with hosts, one per line.
-  - `--no-notify`: Disable system notifications.
-  - `--warn-html-errors`: Warn on HTML parsing errors (fuzz scanner).
-  - `--override SECTION.KEY=VALUE`: Override config (e.g., `ports.range=1-1000`).
-  - `-v, --verbose`: Enable debug output.
+MCH uses a TOML configuration file at `~/.config/mch/config.toml` (created automatically on first run) and persists scan results in the user's data directory to track the lifecycle of each issue.
 
-Example:
-
-```bash
-mch scan acao pma.localhost --override acao.endpoints=/,/admin --verbose
-```
-
-### Report
-
-View scan results:
-
-```bash
-mch report HOSTS [--type TYPE]
-```
-
-- **Hosts**: Hosts to report on.
-- **Type**: Report type:
-  - `warnings` (default): Unacknowledged ports, fuzz issues, and uncategorized/will-fix ACAO issues.
-  - `critical`: ACAO issues with `arbitrary` or `leaked_ip` types.
-  - `all`: All scan results and statuses.
-
-Example:
-
-```bash
-mch report pma.localhost --type warnings
-```
-
-### Acknowledge
-
-Interactively acknowledge issues:
-
-```bash
-mch ack HOST
-```
-
-- **Host**: Host to acknowledge issues for.
-- Options for ports: `acknowledge`, `skip`.
-- Options for fuzz/ACAO issues: `false_positive`, `wont_fix`, `skip`.
-
-Example:
-
-```bash
-mch ack pma.localhost
-```
-
-## Configuration
-
-MCH uses a TOML configuration file at `~/.config/mch/config.toml` (created automatically with defaults).
-
-Config overrides are possible via the `--override` CLI option:
-
-```bash
-mch scan fuzz pma.localhost --override fuzz.extensions=.php,.html
-```
-
-## State Management
-
-Scan results are stored in `~/{user_data_dir}/mch/targets/<hash>.json` per host, tracking:
-
-- Open ports and acknowledged ports.
-- Fuzz issues (exposed paths) with statuses (`issues`, `will_fix`, `false_positive`, `wont_fix`).
-- ACAO issues with statuses (`uncategorized`, `will_fix`, `false_positive`, `wont_fix`, `resolved`).
-
-**Note**: user_data_dir is system-dependent. For most linux setups it is `~/.local/share`.
+For a deeper dive into the priority of configuration layers and how issue states are managed, see the [Core Concepts](docs/concepts.md) guide.
 
 ## Logging
 
-Logs are written to `~/.local/share/mch/mch.log` (debug level) and displayed in the console (info level, or debug with `--verbose`).
+Detailed debug logs are written to `~/.local/share/mch/mch.log` and displayed in the console (info level, or debug with `--verbose`).
+
+## Code Quality
+I maintain high code quality standards using:
+- **Ruff**: For lightning-fast linting and formatting.
+- **Ty**: For static type checking.
+- **Pytest**: For automated testing.
+
+See [Linting & Quality](docs/linting.md) and [Building](docs/build.md) for details on the quality gating and build process.
+
+## Documentation
+
+The project documentation is built with **MkDocs** and the **Terminal** theme. Detailed information about the documentation build process, standards, and maintenance can be found in the [Documentation Generation Guide](docs/generate_docs.md).
+
+Deep-dives into the project's internal logic, algorithms, and component design are available in the [Architecture Guide](docs/architecture.md).
+
+### Documentation Commands
+
+- **Build**: `make docs`
+- **Preview**: `make serve-docs`
 
 ## Code Quality
 We maintain high code quality standards using:

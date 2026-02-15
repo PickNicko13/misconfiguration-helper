@@ -1,8 +1,14 @@
+"""Interactive single-keypress prompt system for MCH.
+
+This module provides a specialized prompt class that allows users to acknowledge
+scanner findings with a single key press, mapping characters to specific actions.
+"""
+
 import sys
 from rich.console import Console
 from rich.prompt import Prompt
-from typing import List, Optional
 
+#: Shared console instance for consistent prompting.
 console = Console()
 
 # Conditional imports for platform-specific single-keypress input
@@ -14,18 +20,45 @@ else:
 
 
 class SingleKeyPrompt:
-	"""A prompt that allows selecting an option with a single keypress, with automatic underlined letter selection."""
+	"""A prompt for selecting an option with a single keypress.
 
-	def __init__(self, message: str, options: List[str], default: Optional[str] = None):
-		"""Initialize with prompt message, options, and optional default."""
+	This class automatically identifies unique letters in the provided options
+	to use as keyboard shortcuts and handles platform-specific terminal locking.
+
+	Attributes:
+		message (str): The prompt message to display.
+		options (List[str]): List of valid selection strings.
+		default (Optional[str]): The fallback option if input is empty.
+		key_map (Dict[str, str]): Mapping of keys to their respective options.
+		console (Console): The rich console instance used for output.
+
+	"""
+
+	def __init__(self, message: str, options: list[str], default: str | None = None):
+		"""Initialize the prompt with available choices.
+
+		Args:
+			message: The question or instruction for the user.
+			options: A list of words to choose from.
+			default: An optional default choice (must be in options).
+
+		"""
 		self.message = message
 		self.options = options
 		self.default = default if default in options else None
 		self.key_map = self._assign_keys()
 		self.console = console
 
-	def _assign_keys(self) -> dict:
-		"""Assign unique keypress letters to each option, using the first unique letter."""
+	def _assign_keys(self) -> dict[str, str]:
+		"""Identify and assign unique trigger keys for each option.
+
+		Returns:
+			Dict[str, str]: A dictionary of {character: option_name}.
+
+		Raises:
+			ValueError: If an option has no unique alphabetic characters left.
+
+		"""
 		key_map = {}
 		used_keys = set()
 		for option in self.options:
@@ -39,7 +72,12 @@ class SingleKeyPrompt:
 		return key_map
 
 	def _render_prompt(self) -> str:
-		"""Render the prompt with underlined key letters."""
+		"""Generate the formatted prompt string with underlined shortcuts.
+
+		Returns:
+			str: A rich-formatted string for the console.
+
+		"""
 		formatted_options = []
 		for option in self.options:
 			key = next(k for k, v in self.key_map.items() if v == option)
@@ -53,7 +91,15 @@ class SingleKeyPrompt:
 		return f'{self.message} ({", ".join(formatted_options)})'
 
 	def ask(self) -> str:
-		"""Capture a single keypress or fall back to text input, returning the selected option."""
+		"""Capture a single keypress and return the corresponding option.
+
+		Falls back to standard text input if the terminal is non-interactive
+		or the platform is unsupported.
+
+		Returns:
+			str: The chosen option string.
+
+		"""
 		# Check if terminal supports rich markup
 		if not sys.stdout.isatty():
 			self.console.print(

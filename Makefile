@@ -1,4 +1,4 @@
-.PHONY: lint check format typecheck tests all
+.PHONY: lint check format typecheck tests all docs serve-docs
 
 # Default target
 all: lint tests
@@ -21,3 +21,11 @@ typecheck:
 # Run tests
 tests:
 	./venv/bin/pytest
+
+# Build documentation
+docs:
+	PATH=$(PWD)/venv/bin:$(PATH) ./venv/bin/mkdocs build
+
+# Serve documentation locally
+serve-docs:
+	PATH=$(PWD)/venv/bin:$(PATH) ./venv/bin/mkdocs serve

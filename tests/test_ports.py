@@ -1,3 +1,5 @@
+"""Unit tests for the PortScanner in the MCH project."""
+
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
@@ -8,6 +10,7 @@ from mch.state import StateManager
 
 @pytest.fixture
 def config():
+	"""Provide a mock configuration for port scanning tests."""
 	cfg = ConfigManager()
 	cfg.config = {'ports': {'range': '80-85', 'timeout': 0.1, 'expected': [80, 443]}}
 	return cfg
@@ -15,6 +18,7 @@ def config():
 
 @pytest.fixture
 def state_mgr(mocker):
+	"""Provide a mock state manager for port scanning tests."""
 	mgr = MagicMock(spec=StateManager)
 	mgr.load_state.return_value = {'ports': {'current_open': [], 'acknowledged': [80]}}
 	return mgr
@@ -22,6 +26,7 @@ def state_mgr(mocker):
 
 @pytest.fixture
 def scanner(config, state_mgr):
+	"""Provide a PortScanner instance for testing."""
 	return PortScanner(
 		target='127.0.0.1', config=config, state_mgr=state_mgr, warn_html_errors=False
 	)
@@ -29,6 +34,7 @@ def scanner(config, state_mgr):
 
 @pytest.mark.asyncio
 async def test_port_scanner_opens_port(scanner, mocker):
+	"""Test that PortScanner correctly identifies open ports."""
 	open_connection_mock = AsyncMock()
 	writer_mock = MagicMock()
 	writer_mock.wait_closed = AsyncMock()
@@ -43,6 +49,7 @@ async def test_port_scanner_opens_port(scanner, mocker):
 
 @pytest.mark.asyncio
 async def test_port_scanner_closed_port(scanner, mocker):
+	"""Test that PortScanner correctly ignores closed ports."""
 	open_connection_mock = AsyncMock(side_effect=ConnectionRefusedError)
 	mocker.patch('asyncio.open_connection', open_connection_mock)
 
@@ -54,6 +61,8 @@ async def test_port_scanner_closed_port(scanner, mocker):
 
 @pytest.mark.asyncio
 async def test_port_scanner_mixed_open_closed(scanner, mocker):
+	"""Test PortScanner behavior with a mix of open and closed ports."""
+
 	async def mock_open(target, port, *args):
 		if port in (82, 84):
 			writer = MagicMock()
@@ -71,6 +80,7 @@ async def test_port_scanner_mixed_open_closed(scanner, mocker):
 
 @pytest.mark.asyncio
 async def test_port_scanner_respects_acknowledged(scanner, mocker):
+	"""Ensure that PortScanner excludes already acknowledged ports from new findings."""
 	scanner.state['ports']['acknowledged'] = [80, 81, 82]
 
 	async def mock_open(target, port, *args):
@@ -89,5 +99,6 @@ async def test_port_scanner_respects_acknowledged(scanner, mocker):
 
 
 def test_port_scanner_total_ports_calculation(scanner):
+	"""Verify that PortScanner correctly calculates the total number of ports in range."""
 	asyncio.run(scanner.run_async())
 	assert scanner.total_ports == 6  # range 80-85

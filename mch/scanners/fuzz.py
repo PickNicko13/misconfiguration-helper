@@ -1,15 +1,36 @@
+"""Directory and file fuzzing functionality for the MCH project.
+
+This module provides the `FuzzScanner` class, which uses wordlists to
+identify exposed files and directories on a target host across multiple
+HTTP schemes and extensions.
+"""
+
 import asyncio
 import httpx
 from .base import BaseScanner
 from mch.utils import setup_logging
-from typing import Dict, Any
+from typing import Any
 from pathlib import Path
 from threading import Lock
 import urllib.parse
 
 
 class FuzzScanner(BaseScanner):
+	"""Asynchronously fuzzes a target host for exposed paths.
+
+	This scanner identifies reachable URLs using a combination of a wordlist
+	and optional file extensions. It supports multiple HTTP schemes (HTTP/HTTPS)
+	and handles basic false positive detection for custom 404 pages.
+
+	Attributes:
+		paths_scanned (int): The current count of probed paths.
+		total_paths (int): The calculated total of paths to scan.
+		run_result (Dict): Stores the results of the last completed scan.
+
+	"""
+
 	def __init__(self, *args, **kwargs):
+		"""Initialize the FuzzScanner with default values."""
 		super().__init__(*args, **kwargs)
 		self.paths_scanned = 0
 		self.total_paths = 0
@@ -26,6 +47,19 @@ class FuzzScanner(BaseScanner):
 		timeout: float,
 		max_retries: int = 3,
 	) -> bool:
+		"""Probes if a specific scheme (http/https) is responsive on the target.
+
+		Args:
+			client: The HTTP client to use for the probe.
+			scheme: The scheme to test (e.g., 'http').
+			target: The hostname or IP to test.
+			timeout: Connection timeout in seconds.
+			max_retries: Number of connection attempts before giving up.
+
+		Returns:
+			bool: True if the scheme is responsive, False otherwise.
+
+		"""
 		url = f'{scheme}://{target}/'
 		backoff = 1.0
 		for attempt in range(max_retries):
@@ -71,7 +105,13 @@ class FuzzScanner(BaseScanner):
 		)
 		return False
 
-	async def run_async(self) -> Dict[str, Any]:
+	async def run_async(self) -> dict[str, Any]:
+		"""Execute the fuzzing scan asynchronously.
+
+		Returns:
+			Dict[str, Any]: A dictionary containing a list of `found` paths.
+
+		"""
 		results = {'found': []}
 		self.logger.debug(f'Starting fuzz scan on {self.target}')
 		target = str(self.target)
@@ -103,7 +143,7 @@ class FuzzScanner(BaseScanner):
 		wordlist = []
 		for file_path in wordlist_files:
 			try:
-				with open(file_path, 'r', encoding='utf-8') as f:
+				with open(file_path, encoding='utf-8') as f:
 					wordlist.extend(line.strip() for line in f if line.strip())
 			except Exception as e:
 				self.logger.error(f'Failed to load wordlist {file_path}: {e}')
@@ -192,6 +232,21 @@ class FuzzScanner(BaseScanner):
 		delay: float,
 		semaphore: asyncio.Semaphore,
 	) -> tuple[bool, int | None]:
+		"""Probes a single path on the target host.
+
+		Args:
+			client: The HTTP client instance.
+			scheme: The scheme to use (e.g., 'https').
+			target: Hostname or IP of the target.
+			path: The relative path to test.
+			timeout: Connection timeout in seconds.
+			delay: Sleep duration between requests.
+			semaphore: To control the concurrency.
+
+		Returns:
+			tuple[bool, int | None]: A tuple of (is_found, status_code).
+
+		"""
 		async with semaphore:
 			backoff = 1.0
 			max_retries = 3
@@ -261,6 +316,12 @@ class FuzzScanner(BaseScanner):
 			return False, None
 
 	def get_progress(self) -> str:
+		"""Return a formatted progress string for the fuzz scan.
+
+		Returns:
+			str: A string like ' 42/1000'.
+
+		"""
 		with self._lock:
 			if self.total_paths > 0:
 				return f' {self.paths_scanned}/{self.total_paths}'

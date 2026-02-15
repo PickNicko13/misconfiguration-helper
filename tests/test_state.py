@@ -1,3 +1,5 @@
+"""Unit tests for the StateManager in the MCH project."""
+
 import pytest
 import hashlib
 from pathlib import Path
@@ -6,7 +8,7 @@ from mch.state import StateManager
 
 @pytest.fixture
 def state_mgr(tmp_path):
-	"""Фікстура з тимчасовою директорією для тестів."""
+	"""Provide a StateManager instance with a temporary directory for tests."""
 	mgr = StateManager()
 	mgr.state_dir = tmp_path / 'targets'
 	mgr.state_dir.mkdir()
@@ -14,6 +16,7 @@ def state_mgr(tmp_path):
 
 
 def test_get_state_file_generates_md5(state_mgr):
+	"""Verify that state filenames are correctly generated using MD5 hashes."""
 	host = 'example.com'
 	expected_hash = hashlib.md5(host.encode()).hexdigest()
 	expected_filename = f'{expected_hash}.json'
@@ -23,6 +26,7 @@ def test_get_state_file_generates_md5(state_mgr):
 
 
 def test_get_state_file_handles_special_chars(state_mgr):
+	"""Ensure that state file generation handles special characters in hostnames."""
 	host = 'test@host:8080/with/path'
 	expected_hash = hashlib.md5(host.encode()).hexdigest()
 	path = state_mgr._get_state_file(host)
@@ -30,6 +34,7 @@ def test_get_state_file_handles_special_chars(state_mgr):
 
 
 def test_load_state_returns_default_when_no_file(state_mgr):
+	"""Test that load_state returns a default empty state if no file exists."""
 	state = state_mgr.load_state('nonexistent.local')
 
 	assert 'ports' in state
@@ -45,6 +50,7 @@ def test_load_state_returns_default_when_no_file(state_mgr):
 
 
 def test_save_and_load_state_roundtrip(state_mgr):
+	"""Verify that saving and then loading a state preserves all details correctly."""
 	host = 'test.local'
 	original_state = {
 		'ports': {'current_open': [80, 443, 8080], 'acknowledged': [80, 443]},

@@ -4,7 +4,7 @@ This document outlines the code quality standards and the linting/formatting too
 
 ## Chosen Tool: Ruff
 
-For this project, we have selected **Ruff** as our primary linter and formatter.
+For this project, I have selected **Ruff** as the primary linter and formatter.
 
 ### Rationale
 
@@ -20,28 +20,28 @@ While exploring available tools supported by modern editors (such as NeoVim via 
 
 ## Configuration Strategy
 
-Instead of using a separate `.toml` or Ruff-specific file, we consolidate all configurations within `pyproject.toml`. This approach keeps the project root clean and ensures that the tool settings are managed in a single, authoritative location.
+Instead of using a separate `.toml` or Ruff-specific file, I consolidate all configurations within `pyproject.toml`. This approach keeps the project root clean and ensures that the tool settings are managed in a single, authoritative location.
 
 ## Core Styling Rules
 
-To maintain consistency and bridge the gap between better technical standards and common Python conventions, we have established the following rules:
+To maintain consistency and bridge the gap between better technical standards and common Python conventions, I have established the following rules:
 
 ### 1. Indentation: Tabs over Spaces
-We use **tabs** for indentation instead of spaces.
+I use **tabs** for indentation instead of spaces.
 - **Consistency**: One tab character always represents exactly one level of indentation, unlike spaces where multiple characters are used to represent a single logical intent.
 - **Efficiency**: Using 4 spaces is a redundant multiplication of characters.
 - **Accessibility**: Tabs allow developers to adjust the visual width of indents in their own editors without changing the source code.
-- **Clarification**: While spaces are the common Python convention, explicitly defining tabs in our configuration avoids mismatched expectations and ensures a unified style.
+- **Clarification**: While spaces are the common Python convention, explicitly defining tabs in the configuration avoids mismatched expectations and ensures a unified style.
 
 ### 2. String Quoting: Single Quotes
-We use **single quotes** (`'`) for strings. In Python, there is no functional difference between single and double quotes, but single quotes are easier to type as they do not require holding the Shift key.
+I use **single quotes** (`'`) for strings. In Python, there is no functional difference between single and double quotes, but single quotes are easier to type as they do not require holding the Shift key.
 
 ### 3. Consistency and Formatting
 - **Line Length**: The maximum line length is set to **88** characters.
 - **Docstrings**: Docstring formatting is enabled, with a dedicated maximum line length of **60** characters to ensure readability.
-- **Trailing Commas**: We utilize "magic trailing commas" to force multi-line collection formatting when a comma is present at the end of a list or tuple.
+- **Trailing Commas**: I utilize "magic trailing commas" to force multi-line collection formatting when a comma is present at the end of a list or tuple.
 - **Unused Variables**: Variables that are intentionally unused can be ignored by the linter if they are prefixed with an underscore (e.g., `_variable`).
-- **Line Endings**: We enforce LF (`\n`) line endings for all files.
+- **Line Endings**: I enforce LF (`\n`) line endings for all files.
 - **Exclusions**: Directories such as `.git`, `venv`, and `.ruff_cache` are excluded from linting.
 
 ### 4. Target Version
@@ -64,7 +64,7 @@ ruff format
 
 ## Static Typing (ty)
 
-We use **ty** (by Astral) for lightning-fast static type checking.
+I use **ty** (by Astral) for lightning-fast static type checking.
 
 ### Rationale
 - **Performance**: Written in Rust, `ty` is significantly faster than traditional type checkers like MyPy.
@@ -79,7 +79,7 @@ ty check
 
 ## Integration with the Build Process
 
-We ensure code quality is maintained throughout the build and release lifecycle using a combination of local automation and CI/CD.
+I ensure code quality is maintained throughout the build and release lifecycle using a combination of local automation and CI/CD.
 
 ### GitHub Actions (CI)
 A CI workflow is configured in `.github/workflows/lint.yml`. It automatically runs Ruff checks and `ty` type checking on every push and pull request. This serves as the final gatekeeper before code is merged into the main branch.

@@ -1,13 +1,32 @@
+"""Port scanning functionality for the MCH project.
+
+This module provides the `PortScanner` class, which asynchronously scans a
+range of TCP ports on a target host and identifies open ports.
+"""
+
 import asyncio
 from .base import BaseScanner
 from mch.utils import setup_logging
-from typing import Dict, Any
+from typing import Any
 import re
 from threading import Lock
 
 
 class PortScanner(BaseScanner):
+	"""Asynchronously scans TCP ports on a target host.
+
+	This scanner identifies open ports within a specified range and compares
+	them against the set of already acknowledged ports to report new findings.
+
+	Attributes:
+		ports_scanned (int): The number of ports scanned in the current session.
+		total_ports (int): The total number of ports to be scanned.
+		run_result (Dict): Stores the results of the last completed scan.
+
+	"""
+
 	def __init__(self, *args, **kwargs):
+		"""Initialize the PortScanner with default values."""
 		super().__init__(*args, **kwargs)
 		self.ports_scanned = 0
 		self.total_ports = 0
@@ -16,7 +35,13 @@ class PortScanner(BaseScanner):
 		self._lock = Lock()
 		self.logger = setup_logging()
 
-	async def run_async(self) -> Dict[str, Any]:
+	async def run_async(self) -> dict[str, Any]:
+		"""Execute the port scan asynchronously.
+
+		Returns:
+			Dict[str, Any]: A dictionary containing a list of `new_ports` found.
+
+		"""
 		results = {'new_ports': []}
 		self.logger.debug(f'Starting port scan on {self.target}')
 		target = str(self.target)
@@ -77,6 +102,18 @@ class PortScanner(BaseScanner):
 	async def scan_port(
 		self, target: str, port: int, timeout: float, semaphore: asyncio.Semaphore
 	) -> bool:
+		"""Attempt to open a connection to a specific port.
+
+		Args:
+			target: The hostname or IP to scan.
+			port: The port number to test.
+			timeout: Maximum time to wait for a connection in seconds.
+			semaphore: To control the concurrency of the scan.
+
+		Returns:
+			bool: True if the port is open, False otherwise.
+
+		"""
 		async with semaphore:
 			max_retries = 3
 			for attempt in range(max_retries):
@@ -88,7 +125,7 @@ class PortScanner(BaseScanner):
 					with self._lock:
 						self.ports_scanned += 1
 					return True
-				except (asyncio.TimeoutError, ConnectionRefusedError, OSError) as e:
+				except (TimeoutError, ConnectionRefusedError, OSError) as e:
 					if attempt < max_retries - 1:
 						await asyncio.sleep(0.1 * (2**attempt))
 						continue
@@ -115,6 +152,12 @@ class PortScanner(BaseScanner):
 			return False
 
 	def get_progress(self) -> str:
+		"""Return a formatted progress string for the port scan.
+
+		Returns:
+			str: A string like ' 125/65535'.
+
+		"""
 		with self._lock:
 			if self.total_ports > 0:
 				return f' {self.ports_scanned}/{self.total_ports}'

@@ -1,3 +1,9 @@
+"""Utility functions for the MCH (Misconfiguration Scanner) project.
+
+This module provides common functionalities like target validation,
+logging setup, and system path resolution.
+"""
+
 from typing import Any
 import typer
 from pathlib import Path
@@ -12,6 +18,18 @@ console = Console()
 
 
 def validate_target(target: Any) -> str:
+	"""Validate that the provided target is either a valid IP address or a URL.
+
+	Args:
+		target: The target string to validate.
+
+	Returns:
+		str: The validated target string.
+
+	Raises:
+		typer.Exit: If the target is invalid or not a string.
+
+	"""
 	if not isinstance(target, str):
 		typer.echo(f'Invalid target: {target} (must be a string)', err=True)
 		raise typer.Exit(1)
@@ -26,7 +44,17 @@ def validate_target(target: Any) -> str:
 	raise typer.Exit(1)
 
 
-def setup_logging():
+def setup_logging() -> logging.Logger:
+	"""Set up the logging system for the project.
+
+	Configures:
+	- A DEBUG-level file handler at `~/.local/share/mch/mch.log`.
+	- An INFO-level `RichHandler` for colorized console output.
+
+	Returns:
+		logging.Logger: The configured logger instance named 'mch'.
+
+	"""
 	logger = logging.getLogger('mch')
 	if not logger.handlers:  # Prevent duplicate handlers
 		logger.setLevel(logging.DEBUG)

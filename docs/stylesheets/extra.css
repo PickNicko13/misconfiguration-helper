@@ -1,0 +1,290 @@
+:root {
+    /* Mapping clean variables to built-in theme variables */
+    --bg0: var(--gb-dm-bg0);
+    --bg0-hard: var(--gb-dm-bg0-hard);
+    --bg0-soft: var(--gb-dm-bg0-soft);
+    --bg1: var(--gb-dm-bg1);
+    --bg2: var(--gb-dm-bg2);
+    --bg3: var(--gb-dm-bg3);
+    --bg4: var(--gb-dm-bg4);
+
+    --fg0: var(--gb-dm-fg0);
+    --fg1: var(--gb-dm-fg1);
+    --fg2: var(--gb-dm-fg2);
+    --fg3: var(--gb-dm-fg3);
+    --fg4: var(--gb-dm-fg4);
+
+    --red-muted: var(--gb-dm-dark-red);
+    --green-muted: var(--gb-dm-dark-green);
+    --yellow-muted: var(--gb-dm-dark-yellow);
+    --blue-muted: var(--gb-dm-dark-blue);
+    --purple-muted: var(--gb-dm-dark-purple);
+    --aqua-muted: var(--gb-dm-dark-aqua);
+    --orange-muted: var(--gb-dm-dark-orange);
+    --gray: var(--gb-dm-dark-gray);
+
+    --red: var(--gb-dm-light-red);
+    --green: var(--gb-dm-light-green);
+    --yellow: var(--gb-dm-light-yellow);
+    --blue: var(--gb-dm-light-blue);
+    --purple: var(--gb-dm-light-purple);
+    --aqua: var(--gb-dm-light-aqua);
+    --orange: var(--gb-dm-light-orange);
+
+    /* Semantic Variables referencing the palette */
+    --primary-color: var(--yellow-muted);
+    --secondary-color: var(--blue-muted);
+    --background-color: var(--bg0);
+    --font-color: var(--fg1);
+    --invert-font-color: var(--bg1);
+    --link-color: var(--blue);
+    --link-hover-color: var(--yellow);
+    --link-hover-background-color: var(--bg2);
+    --code-background-color: var(--bg1);
+    --code-font-color: var(--fg1);
+    --border-color: var(--bg2);
+    --margin-bottom: 1.5rem;
+    --global-line-height: 1.2;
+}
+
+body {
+    background-color: var(--background-color);
+    color: var(--font-color);
+}
+
+.terminal-nav {
+    border-bottom: 2px solid var(--primary-color);
+}
+
+@media (min-width: 30rem) {
+    .terminal-nav {
+        flex-wrap: wrap;
+        justify-content: space-between;
+    }
+
+    .terminal-nav>nav.terminal-menu {
+        width: auto;
+    }
+}
+
+.terminal-logo a {
+    color: var(--primary-color) !important;
+}
+
+a {
+    color: var(--link-color);
+
+    &:hover {
+        color: var(--link-hover-color);
+        background-color: var(--link-hover-background-color);
+    }
+}
+
+/* Base pre/code styles - remove internal margins */
+pre,
+code {
+    background-color: var(--code-background-color) !important;
+    color: var(--code-font-color) !important;
+    border: 1px solid var(--border-color);
+    margin: 0 !important;
+    /* Remove internal margins that theme might add */
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: var(--primary-color);
+}
+
+.terminal-alert-primary {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+/* Syntax Highlighting Container */
+.codehilite,
+.highlight,
+code[class*="language-"] {
+    background-color: var(--background-color);
+    padding: 1rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    display: block;
+    overflow-x: auto;
+    margin-bottom: var(--margin-bottom);
+    white-space: pre-wrap;
+
+    /* Force nested elements to zero margin */
+    pre,
+    code {
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        background-color: transparent !important;
+        display: block;
+        width: 100%;
+        white-space: pre-wrap !important;
+    }
+
+    /* Token Mapping */
+
+    /* Comments */
+    .c,
+    .cm,
+    .c1,
+    .cs,
+    .hljs-comment {
+        color: var(--gray);
+        font-style: italic
+    }
+
+    /* Keywords & Control */
+    .k,
+    .kc,
+    .kd,
+    .kn,
+    .kp,
+    .kr,
+    .hljs-keyword,
+    .hljs-selector-tag {
+        color: var(--red);
+        font-weight: bold
+    }
+
+    /* Operators & Punctuation */
+    .o,
+    .ow,
+    .hljs-operator,
+    .hljs-punctuation,
+    .hljs-params {
+        color: var(--orange);
+        font-weight: bold
+    }
+
+    /* Strings */
+    .s,
+    .sb,
+    .sc,
+    .sd,
+    .s2,
+    .se,
+    .sh,
+    .si,
+    .sx,
+    .sr,
+    .s1,
+    .ss,
+    .hljs-string,
+    .hljs-regexp {
+        color: var(--green)
+    }
+
+    /* Functions & Command Executables (Aqua) */
+    .nf,
+    .nb,
+    .hljs-function,
+    .hljs-title,
+    .hljs-built_in,
+    .hljs-name {
+        color: var(--aqua);
+        font-weight: bold
+    }
+
+    /* Types & Literals (Yellow) */
+    .kt,
+    .hljs-type,
+    .hljs-literal,
+    .hljs-symbol {
+        color: var(--yellow)
+    }
+
+    /* Variables, Flags & Arguments (Blue) */
+    .nv,
+    .vc,
+    .vg,
+    .vi,
+    .na,
+    .hljs-variable,
+    .hljs-attr,
+    .hljs-attribute,
+    .hljs-template-variable {
+        color: var(--blue)
+    }
+
+    /* Numbers */
+    .m,
+    .mf,
+    .mh,
+    .mi,
+    .mo,
+    .il,
+    .hljs-number {
+        color: var(--purple)
+    }
+
+    /* Shell Prompt */
+    .gp,
+    .hljs-prompt {
+        color: var(--yellow);
+        font-weight: bold
+    }
+}
+
+/* Inline code handling - fix word breaking */
+:not(pre)>code {
+    display: inline-block;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    /* Use this instead of break-all */
+    word-break: normal;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    padding: 0.05em 0.3em;
+    margin: 0.05em 0 !important;
+    border-radius: 3px;
+    font-size: 0.85rem !important;
+
+    /* Keep the pseudo-elements disabled */
+    &::before,
+    &::after {
+        content: none !important;
+        display: none !important;
+    }
+}
+
+section#mkdocs-terminal-content {
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5 {
+        padding: 2em 0 0.75em;
+        font-size: 1.1em;
+    }
+
+    h1 {
+        font-size: 1.6em;
+        color: var(--green);
+    }
+
+    h2 {
+        font-size: 1.3em;
+        color: var(--purple);
+    }
+
+    h3 {
+        color: var(--yellow);
+    }
+
+    h4 {
+        color: var(--aqua);
+    }
+
+    h5 {
+        color: var(--fg0);
+    }
+}

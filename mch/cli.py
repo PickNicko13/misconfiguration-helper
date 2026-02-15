@@ -1,3 +1,9 @@
+"""Command line interface for the Misconfiguration Helper (MCH).
+
+This module contains the Typer app and commands for scanning hosts,
+generating reports, and acknowledging findings.
+"""
+
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -9,7 +15,7 @@ from mch.state import StateManager
 from mch.utils import validate_target, setup_logging
 from mch.prompt import SingleKeyPrompt
 from mch.scanners import SCANNERS
-from typing import List, Optional, Dict, Any
+from typing import Any
 import asyncio
 import time
 import re
@@ -24,10 +30,32 @@ logger = setup_logging()
 
 
 async def send_notification(title: str, message: str):
+	"""Send an OS-level desktop notification.
+
+	Args:
+		title: The title of the alert.
+		message: The body content of the notification.
+
+	"""
 	await notifier.send(title=title, message=message)
 
 
-def parse_overrides(overrides: List[str]) -> Dict[str, Dict[str, Any]]:
+def parse_overrides(overrides: list[str]) -> dict[str, dict[str, Any]]:
+	"""Parse a list of key-value override strings into a nested configuration.
+
+	The expected format is `section.key=value`. This function also handles
+	type conversion for common numeric and list-based settings.
+
+	Args:
+		overrides: A list of string overrides (e.g., ['ports.timeout=2.0']).
+
+	Returns:
+		Dict[str, Dict[str, Any]]: A nested dictionary of overrides.
+
+	Raises:
+		ValueError: If any override string is improperly formatted.
+
+	"""
 	ov_dict = {}
 	for ov in overrides:
 		try:
@@ -63,22 +91,40 @@ def scan(
 	types: str = typer.Argument(
 		'all', help="Comma-separated scan types (ports, fuzz, acao) or 'all'"
 	),
-	hosts: Optional[List[str]] = typer.Argument(None, help='Hosts to scan'),
-	host_list: Optional[typer.FileText] = typer.Option(
+	hosts: list[str] | None = typer.Argument(None, help='Hosts to scan'),
+	host_list: typer.FileText | None = typer.Option(
 		None, '--host-list', help='File with hosts, one per line'
 	),
 	no_notify: bool = typer.Option(False, '--no-notify', help='Disable notifications'),
 	warn_html_errors: bool = typer.Option(
 		False, '--warn-html-errors', help='Warn on HTML errors'
 	),
-	overrides: Optional[List[str]] = typer.Option(
+	overrides: list[str] | None = typer.Option(
 		None, '--override', help='Config overrides, e.g. ports.range=1-65535'
 	),
 	verbose: bool = typer.Option(
 		False, '-v', '--verbose', help='Enable verbose debug output to console'
 	),
 ):
-	"""Scan hosts for misconfigurations."""
+	"""Scan specific hosts for security misconfigurations.
+
+	This is the primary entry point for probing network targets. It loads
+	the configuration, initializes state, and coordinates multiple concurrent
+	scanners as defined by the user.
+
+	Args:
+		types: The scan modules to run (base, ports, fuzz, acao, or all).
+		hosts: Interactive target host list.
+		host_list: Path to a file containing target URLs or IPs.
+		no_notify: Flag to skip desktop notification of completion.
+		warn_html_errors: Flag to alert on remote server HTML failures.
+		overrides: Dynamic configuration overrides (section.key=value).
+		verbose: Toggle for detailed debug messages.
+
+	Raises:
+		typer.Exit: If invalid scan types are provided or targets are missing.
+
+	"""
 	if verbose:
 		existing_handlers = [
 			h
@@ -138,14 +184,28 @@ def scan(
 
 
 async def async_scan(
-	all_hosts: List[str],
-	scan_types: List[str],
+	all_hosts: list[str],
+	scan_types: list[str],
 	config: ConfigManager,
 	state_mgr: StateManager,
 	warn_html_errors: bool,
 	no_notify: bool,
 	verbose: bool,
 ):
+	"""Asynchronous orchestration for multiple host scans.
+
+	Calculates and displays a real-time progress bar for all targets and types.
+
+	Args:
+		all_hosts: Final list of targets (joined from CLI and files).
+		scan_types: List of scanner modules to activate.
+		config: Shared configuration instance.
+		state_mgr: State manager for persistence.
+		warn_html_errors: Toggle for HTML warning reporting.
+		no_notify: Prevents sending desktop alerts.
+		verbose: Enables debug level logging for the session.
+
+	"""
 	progress = Progress(
 		SpinnerColumn(), TextColumn('[progress.description]{task.description}')
 	)
@@ -252,8 +312,19 @@ async def async_scan(
 
 
 def update_status(
-	progress: Progress, tasks: Dict, host: str, status: Dict, warnings: int, errors: int
+	progress: Progress, tasks: dict, host: str, status: dict, warnings: int, errors: int
 ):
+	"""Dynamically updates the rich progress bar description.
+
+	Args:
+		progress: The terminal progress bar object.
+		tasks: Global dictionary mapping hosts to task IDs.
+		host: Title of the current host bar.
+		status: Internal module-by-module state and percentage.
+		warnings: Running tally of findings.
+		errors: Running tally of scanner failures.
+
+	"""
 	desc = f'{host}: ' + ', '.join(
 		[f'{t} ({s["state"]}{s["progress"]})' for t, s in status.items()]
 	)
@@ -264,12 +335,20 @@ def update_status(
 
 @app.command()
 def report(
-	hosts: List[str] = typer.Argument(..., help='Hosts to report'),
+	hosts: list[str] = typer.Argument(..., help='Hosts to report'),
 	type: str = typer.Option(
 		'warnings', '--type', help='critical, warnings (default), all'
 	),
 ):
-	"""Report scan results."""
+	"""Display reported issues from previous scan sessions.
+
+	Provides filtered views of findings stored in the project's data directory.
+
+	Args:
+		hosts: The hostnames or IP addresses to query.
+		type: Filter level (critical, warnings, or all).
+
+	"""
 	state_mgr = StateManager()
 	for host in hosts:
 		state = state_mgr.load_state(host)
@@ -391,7 +470,15 @@ def report(
 
 @app.command()
 def ack(host: str = typer.Argument(..., help='Host to acknowledge issues')):
-	"""Interactively acknowledge issues."""
+	"""Start an interactive session to acknowledge or dismiss findings.
+
+	This triggers a set of per-issue prompts allowing the user to mark findings
+	as false positives or resolved so they don't appear in future reports.
+
+	Args:
+		host: The hostname to enter the acknowledgment flow for.
+
+	"""
 	if not sys.stdout.isatty():
 		print(f'Acknowledging issues for {host} (plain text mode)')
 		return
@@ -453,6 +540,7 @@ def ack(host: str = typer.Argument(..., help='Host to acknowledge issues')):
 
 
 def main():
+	"""Entry point for the MCH command line interface."""
 	app()
 
 
