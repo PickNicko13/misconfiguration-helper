@@ -9,9 +9,8 @@ from mch.state import StateManager
 from mch.utils import validate_target, setup_logging
 from mch.prompt import SingleKeyPrompt
 from mch.scanners import SCANNERS
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 import asyncio
-import threading
 import time
 import re
 import logging

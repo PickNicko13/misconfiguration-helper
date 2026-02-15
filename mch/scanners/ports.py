@@ -1,5 +1,4 @@
 import asyncio
-import socket
 from .base import BaseScanner
 from mch.utils import setup_logging
 from typing import Dict, Any

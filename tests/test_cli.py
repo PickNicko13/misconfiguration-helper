@@ -1,9 +1,8 @@
 import pytest
 from typer.testing import CliRunner
 from unittest.mock import patch, MagicMock
-from rich.progress import Progress, TaskID
-from mch.cli import app, parse_overrides, update_status, scan, report, ack
-from mch.config import ConfigManager
+from rich.progress import Progress
+from mch.cli import app, parse_overrides, update_status
 
 runner = CliRunner()
 

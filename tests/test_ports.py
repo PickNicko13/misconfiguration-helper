@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from mch.scanners.ports import PortScanner
 from mch.config import ConfigManager
 from mch.state import StateManager

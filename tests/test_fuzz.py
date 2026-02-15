@@ -1,7 +1,6 @@
 import pytest
 import respx
 import httpx
-from pathlib import Path
 from unittest.mock import MagicMock
 from mch.scanners.fuzz import FuzzScanner
 from mch.config import ConfigManager
