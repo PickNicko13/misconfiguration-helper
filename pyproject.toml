@@ -29,3 +29,38 @@ mch = "mch.cli:main"
 
 [tool.setuptools.package-data]
 mch = ["wordlists/*"]
+
+[tool.ruff]
+exclude = [
+    ".git",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    ".vscode",
+    "venv",
+]
+
+line-length = 88
+target-version = "py314"
+
+[tool.ruff.lint]
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "tab"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Use `\n` line endings for all files
+line-ending = "lf"
+
+# Enable auto-formatting of code examples in docstrings. Markdown,
+# reStructuredText code/literal blocks and doctests are all supported.
+docstring-code-format = true
+
+# Set the line length limit used when formatting code snippets in
+# docstrings.
+docstring-code-line-length = 60
