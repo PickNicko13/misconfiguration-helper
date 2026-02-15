@@ -22,33 +22,28 @@ python -m build
 
 The resulting artifacts (`.whl` and `.tar.gz`) will be located in the `dist/` directory.
 
-## Integrated Linting
+## Quality Assurance during Build
+To maintain high standards, we recommend running the full suite of linting and type checks before building or distributing the package.
 
-As part of our commitment to code quality, **linting is mandatory during the build process**.
+While the build process itself (`python -m build`) focuses on packaging, our CI/CD pipeline and local `Makefile` act as the quality gates.
 
-When you run `python -m build` (or `pip install .`), the following steps occur automatically via our custom `setup.py` hooks:
+### 1. Local Verification
+Before running a build, use the `Makefile` to verify the code quality:
 
-1.  **Ruff Check**: Runs linting rules to identify potential bugs and anti-patterns.
-2.  **Ruff Format**: Automatically formats the code to adhere to our styling standards.
-3.  **Static Type Check (ty check)**: Verifies type safety using the lightning-fast `ty` checker.
+```bash
+make lint
+```
 
-**If any of these checks fail, the build process will terminate immediately with an error**, and no package will be created. This ensures that every released version of MCH meets our quality standards.
+This runs:
+1.  **Ruff Check**: Identifies potential bugs and anti-patterns.
+2.  **Ruff Format**: Verifies adherence to styling standards.
+3.  **Static Typing (ty check)**: Performs fast static analysis.
 
-## Troubleshooting Build Failures
-
-If your build fails due to linting errors:
-
-1.  Check the console output to identify the specific files and lines causing the issues.
-2.  Run the following commands to automatically fix most styling issues:
-    ```bash
-    ruff check --fix
-    ruff format
-    ```
-3.  Once the issues are resolved, attempt the build again.
+### 2. CI/CD Gating
+Our GitHub Actions workflow (`.github/workflows/lint.yml`) performs these same checks on every push. We ensure that no code is merged or released if it fails these checks.
 
 ## Local Installation (Editable)
-
-For development purposes, you can install the package in "editable" mode. Note that this also triggers the linting hooks:
+For development, install the package in "editable" mode:
 
 ```bash
 pip install -e .

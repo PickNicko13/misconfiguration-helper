@@ -62,7 +62,7 @@ ruff check --fix
 ruff format
 ```
 
-## Static Type Checking: ty
+## Static Typing (ty)
 
 We use **ty** (by Astral) for lightning-fast static type checking.
 
@@ -77,15 +77,23 @@ To perform type checking manually:
 ty check
 ```
 
-## Automation
+## Integration with the Build Process
 
-To ensure code quality is maintained consistently, linting is integrated into the development workflow:
+We ensure code quality is maintained throughout the build and release lifecycle using a combination of local automation and CI/CD.
 
-### 1. GitHub Actions (CI)
-A CI workflow is configured in `.github/workflows/lint.yml`. It automatically runs Ruff checks and `ty` type checking on every push and pull request.
+### GitHub Actions (CI)
+A CI workflow is configured in `.github/workflows/lint.yml`. It automatically runs Ruff checks and `ty` type checking on every push and pull request. This serves as the final gatekeeper before code is merged into the main branch.
 
-### 2. Pre-commit Hooks
-The project includes a `.pre-commit-config.yaml` file. Ruff is already integrated; `ty` can be added to ensure types are checked before every commit.
+### Makefile integration
+The project includes a `Makefile` to simplify running the full suite of quality checks. While linting is no longer a hard-coded hook in `pip install` (to avoid circular dependencies), it is considered a prerequisite for a valid build.
+
+```bash
+# Run all checks (ruff check, ruff format, ty check)
+make lint
+```
+
+## Git Hooks
+The project uses `pre-commit` to catch errors before they are even committed.
 
 ```bash
 # Install pre-commit
@@ -95,18 +103,18 @@ pip install pre-commit
 pre-commit install
 ```
 
-### 3. Makefile (Local Development)
+### Local Development (Makefile)
 The most convenient way to run all checks (Ruff and Ty) locally is via the provided `Makefile`. This mirrors the checks performed in the GitHub Actions CI.
 
 ```bash
-# Run all linting/type checks
+# Run all linting/type checks (ruff check, ruff format, ty check)
 make lint
 
 # Run all checks AND tests
 make
 ```
 
-### 4. Venv Configuration
+### Venv Configuration
 Type checking with `ty` is configured in `pyproject.toml` to use the project's virtual environment (`venv`). This ensures that `ty` can accurately resolve third-party imports and test dependencies.
 
 ## Installation

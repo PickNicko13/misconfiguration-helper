@@ -14,7 +14,7 @@
 
 ## Installation
 
-MCH requires Python 3.8+ and is installed via `pip`. Clone the repository and install dependencies:
+MCH requires Python 3.14+ and is installed via `pip`. Clone the repository and install dependencies:
 
 ```bash
 git clone <repository-url>
@@ -120,10 +120,17 @@ Scan results are stored in `~/{user_data_dir}/mch/targets/<hash>.json` per host,
 
 Logs are written to `~/.local/share/mch/mch.log` (debug level) and displayed in the console (info level, or debug with `--verbose`).
 
+## Code Quality
+We maintain high code quality standards using:
+- **Ruff**: For lightning-fast linting and formatting.
+- **Ty**: For static type checking.
+- **Pytest**: For automated testing.
+
+See [Linting & Quality](docs/linting.md) and [Building](docs/build.md) for details on our quality gating and build process.
+
 ## Known Limitations
 
-- Early alpha: Expect bugs and missing features.
-- No comprehensive test suite yet.
+- Early alpha: Expect bugs and evolving features.
 - Fuzz scanner may generate false positives on custom 404 pages.
 - ACAO scanner assumes HTTP/HTTPS schemes; other protocols are unsupported.
 
