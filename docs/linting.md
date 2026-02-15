@@ -95,17 +95,19 @@ pip install pre-commit
 pre-commit install
 ```
 
-### 3. Build Process Integration
-Static analysis and type checking are integrated directly into the Python package build process via `setup.py`.
+### 3. Makefile (Local Development)
+The most convenient way to run all checks (Ruff and Ty) locally is via the provided `Makefile`. This mirrors the checks performed in the GitHub Actions CI.
 
-When you run a build command (e.g., `python -m build` or `pip install .`), the following sequence occurs:
-1. `ruff check` (Linting)
-2. `ruff format` (Formatting)
-3. `ty check` (Static Type Checking)
+```bash
+# Run all linting/type checks
+make lint
 
-If any check fails (especially type checking), the build process will be aborted.
+# Run all checks AND tests
+make
+```
 
-To support this, `ruff` and `ty` are included in the `[build-system]` requirements in `pyproject.toml`.
+### 4. Venv Configuration
+Type checking with `ty` is configured in `pyproject.toml` to use the project's virtual environment (`venv`). This ensures that `ty` can accurately resolve third-party imports and test dependencies.
 
 ## Installation
 
