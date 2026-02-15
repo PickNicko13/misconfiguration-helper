@@ -27,9 +27,9 @@ Instead of using a separate `.toml` or Ruff-specific file, we consolidate all co
 To maintain consistency and bridge the gap between better technical standards and common Python conventions, we have established the following rules:
 
 ### 1. Indentation: Tabs over Spaces
-We use **tabs** for indentation instead of spaces. 
-- **Consistency**: One tab character always represents exactly one level of indentation, unlike spaces where multiple characters are used to represent a single logical intent. 
-- **Efficiency**: Using 4 spaces is a redundant multiplication of characters. 
+We use **tabs** for indentation instead of spaces.
+- **Consistency**: One tab character always represents exactly one level of indentation, unlike spaces where multiple characters are used to represent a single logical intent.
+- **Efficiency**: Using 4 spaces is a redundant multiplication of characters.
 - **Accessibility**: Tabs allow developers to adjust the visual width of indents in their own editors without changing the source code.
 - **Clarification**: While spaces are the common Python convention, explicitly defining tabs in our configuration avoids mismatched expectations and ensures a unified style.
 
@@ -61,6 +61,31 @@ To automatically fix issues and format the code:
 ruff check --fix .
 ruff format .
 ```
+
+## Automation
+
+To ensure code quality is maintained consistently, linting is integrated into the development workflow:
+
+### 1. GitHub Actions (CI)
+A CI workflow is configured in `.github/workflows/lint.yml`. It automatically runs `ruff check` and `ruff format --check` on every push and pull request to the `main` or `master` branches.
+
+### 2. Pre-commit Hooks
+The project includes a `.pre-commit-config.yaml` file. You can set up local git hooks to run the linter and other checks automatically before every commit:
+
+```bash
+# Install pre-commit
+pip install pre-commit
+
+# Install the hooks
+pre-commit install
+```
+
+### 3. Build Process Integration
+Linting is integrated directly into the Python package build process. This is achieved via a custom command in `setup.py` that hooks into `build_py`.
+
+When you run a build command (e.g., `python -m build` or `pip install .`), Ruff will automatically run both its check and format-check. If any issues are found, the build process will be aborted.
+
+To support this, `ruff` is included in the `[build-system]` requirements in `pyproject.toml`.
 
 ## Installation
 
