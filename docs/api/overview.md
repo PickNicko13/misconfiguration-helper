@@ -11,4 +11,10 @@ modules of the MCH project.
 - **mch.state**: Persistence logic.
 - **mch.utils**: Shared helpers.
 
+## Test-Driven Documentation
+This project uses "Live Documentation," where usage examples in the API reference are pulled directly from our test suite. This ensures that:
+- Examples are always up-to-date with the codebase.
+- Documentation reflects actual, verified usage patterns.
+- Any breaking change in the code that breaks a test will also alert the documentation engine.
+
 ::: mch

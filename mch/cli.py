@@ -88,8 +88,8 @@ def parse_overrides(overrides: list[str]) -> dict[str, dict[str, Any]]:
 
 @app.command()
 def scan(
-	types: str = typer.Argument(
-		'all', help="Comma-separated scan types (ports, fuzz, acao) or 'all'"
+	scan_modules: str = typer.Argument(
+		'all', help="Comma-separated scan modules (ports, fuzz, acao) or 'all'"
 	),
 	hosts: list[str] | None = typer.Argument(None, help='Hosts to scan'),
 	host_list: typer.FileText | None = typer.Option(
@@ -113,7 +113,7 @@ def scan(
 	scanners as defined by the user.
 
 	Args:
-		types: The scan modules to run (base, ports, fuzz, acao, or all).
+		scan_modules: The scan modules to run (base, ports, fuzz, acao, or all).
 		hosts: Interactive target host list.
 		host_list: Path to a file containing target URLs or IPs.
 		no_notify: Flag to skip desktop notification of completion.
@@ -163,11 +163,13 @@ def scan(
 		logger.error('No hosts provided')
 		raise typer.Exit(1)
 
-	scan_types = list(SCANNERS.keys()) if types == 'all' else types.split(',')
+	scan_types = (
+		list(SCANNERS.keys()) if scan_modules == 'all' else scan_modules.split(',')
+	)
 	invalid_types = set(scan_types) - set(SCANNERS)
 	if invalid_types:
-		console.print(f'[red]Invalid scan types: {invalid_types}[/red]')
-		logger.error(f'Invalid scan types: {invalid_types}')
+		console.print(f'[red]Invalid scan modules: {invalid_types}[/red]')
+		logger.error(f'Invalid scan modules: {invalid_types}')
 		raise typer.Exit(1)
 
 	asyncio.run(
@@ -336,7 +338,7 @@ def update_status(
 @app.command()
 def report(
 	hosts: list[str] = typer.Argument(..., help='Hosts to report'),
-	type: str = typer.Option(
+	report_type: str = typer.Option(
 		'warnings', '--type', help='critical, warnings (default), all'
 	),
 ):
@@ -346,17 +348,19 @@ def report(
 
 	Args:
 		hosts: The hostnames or IP addresses to query.
-		type: Filter level (critical, warnings, or all).
+		report_type: Filter level (critical, warnings, or all).
 
 	"""
 	state_mgr = StateManager()
 	for host in hosts:
 		state = state_mgr.load_state(host)
-		logger.debug(f'Loaded state for {host}: {state.get("ports", {})}')
-		table = Table(title=f'Report for {host} ({type})')
+		logger.debug(
+			f'Loaded state for {host}: {state.get("ports", {})} ({report_type})'
+		)
+		table = Table(title=f'Report for {host} ({report_type})')
 		table.add_column('Type')
 		table.add_column('Issues')
-		if type == 'critical':
+		if report_type == 'critical':
 			acao_issues = [
 				i
 				for i in state.get('acao', {}).get('issues', [])
@@ -367,7 +371,7 @@ def report(
 				'ACAO Issues',
 				f'[red]{len(acao_issues)} issues[/red]' if acao_issues else 'None',
 			)
-		elif type == 'warnings':
+		elif report_type == 'warnings':
 			new_ports = [
 				p
 				for p in state['ports'].get('current_open', [])
@@ -395,7 +399,7 @@ def report(
 				if acao_issues
 				else 'None',
 			)
-		elif type == 'all':
+		elif report_type == 'all':
 			table.add_row(
 				'All Ports', str(list(state['ports'].get('current_open', [])))
 			)
@@ -437,7 +441,7 @@ def report(
 				),
 			)
 		console.print(table)
-		if type == 'warnings':
+		if report_type == 'warnings':
 			if new_ports:
 				console.print('\n[yellow]Unacknowledged Open Ports:[/yellow]')
 				for port in sorted(new_ports):

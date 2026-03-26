@@ -62,6 +62,7 @@ def mock_all_heads(respx_mock, acao_header: str, status=200):
 				)
 
 
+# [snippet:acao_usage_example]
 @pytest.mark.asyncio
 @respx.mock
 async def test_acao_arbitrary_origin(scanner):
@@ -74,6 +75,9 @@ async def test_acao_arbitrary_origin(scanner):
 
 	expected_count = 3 * 2  # 3 endpoints * 2 schemas
 	assert len(star_issues) == expected_count
+
+
+# [snippet:end]
 
 
 @pytest.mark.asyncio
