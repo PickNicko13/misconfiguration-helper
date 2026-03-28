@@ -42,6 +42,9 @@ docs = [
 [project.scripts]
 mch = "mch.cli:main"
 
+[tool.setuptools]
+packages = ["mch"]
+
 [tool.setuptools.package-data]
 mch = ["wordlists/*"]
 
