@@ -12,24 +12,68 @@
 - **Configuration**: Supports TOML-based configuration with command-line overrides.
 - **State Management**: Persists scan results for tracking issue status across runs.
 
-## Installation
+## Developer Onboarding
 
-MCH requires Python 3.14+ and is installed via `pip`. Clone the repository and install dependencies:
+This step-by-step guide is designed for new developers working on a fresh Arch Linux installation. It covers everything from system setup to your first successful scan.
+
+### 1. Prerequisites (Arch Linux)
+
+Install the necessary system dependencies using `pacman`. This includes Git for cloning, Python, and the tools needed to create virtual environments.
+
+```bash
+sudo pacman -S --needed git python python-pip python-virtualenv base-devel
+```
+
+> [!NOTE]
+> `base-devel` is often required for Python packages that need to compile C extensions during installation, though most `mch` dependencies provide pre-built wheels.
+
+### 2. Clone the Repository
+
+Clone the project to your local machine:
 
 ```bash
 git clone <repository-url>
-cd mch
-pip install .
+cd misconfiguration-helper
 ```
 
-### Dependencies
+### 3. Environment Configuration
 
-- `typer`: CLI framework
-- `httpx`: Asynchronous HTTP requests
-- `tomli`, `tomli-w`: TOML parsing and writing
-- `desktop-notifier`: System notifications
-- `rich`: Rich text and console formatting
-- `platformdirs`: Platform-agnostic user data directories
+Create a virtual environment to isolate the project's dependencies from your system-wide Python installation. This is especially important on Arch Linux to avoid PEP 668 conflicts.
+
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+Once activated, your shell prompt will typically show `(venv)`.
+
+### 4. Dev Mode Installation
+
+Install the project in editable mode (`-e`) along with all development, testing, and documentation dependencies:
+
+```bash
+pip install -e ".[dev]"
+```
+
+Editable mode allows you to see changes in the source code immediately without having to reinstall the package.
+
+### 5. Verify Installation
+
+Confirm that the installation was successful by running the help command for the CLI:
+
+```bash
+mch --help
+```
+
+You should see a list of available commands: `scan`, `report`, and `ack`.
+
+### 6. Success: Your First Scan
+
+To verify everything is working as expected, try scanning a test target:
+
+```bash
+mch scan all pma.localhost
+```
 
 ## Usage
 
@@ -52,11 +96,22 @@ For a deeper dive into the priority of configuration layers and how issue states
 
 Detailed debug logs are written to `~/.local/share/mch/mch.log` and displayed in the console (info level, or debug with `--verbose`).
 
-## Code Quality
+## Common Developer Tasks
+
+### Resetting the Warnings Database
+If you want to clear all saved scan results and start with a fresh slate, you can delete the local state directory:
+```bash
+rm -rf ~/.local/share/mch/targets/
+```
+
+### Configuration
+The main configuration file is located at `~/.config/mch/config.toml`. It is automatically generated with default values when you first run the application. You can modify this file to change default ports, wordlists, or timeouts.
+
+### Quality & Testing
 I maintain high code quality standards using:
-- **Ruff**: For lightning-fast linting and formatting.
-- **Ty**: For static type checking.
-- **Pytest**: For automated testing.
+- **Ruff**: For lightning-fast linting and formatting (`make lint`).
+- **Ty**: For static type checking (`make typecheck`).
+- **Pytest**: For automated testing (`make tests`).
 
 See [Linting & Quality](docs/linting.md) and [Building](docs/build.md) for details on the quality gating and build process.
 
@@ -71,19 +126,13 @@ Deep-dives into the project's internal logic, algorithms, and component design a
 - **Build**: `make docs`
 - **Preview**: `make serve-docs`
 
-## Code Quality
-We maintain high code quality standards using:
-- **Ruff**: For lightning-fast linting and formatting.
-- **Ty**: For static type checking.
-- **Pytest**: For automated testing.
-
-See [Linting & Quality](docs/linting.md) and [Building](docs/build.md) for details on our quality gating and build process.
 
 ## Known Limitations
 
 - Early alpha: Expect bugs and evolving features.
 - Fuzz scanner may generate false positives on custom 404 pages.
 - ACAO scanner assumes HTTP/HTTPS schemes; other protocols are unsupported.
+- Hasn't been tested on Mac and Windows (although should presumably work fine).
 
 ## License
 
