@@ -21,6 +21,8 @@ nav:
     - Linting & Quality: linting.md
     - Documentation: generate_docs.md
     - Core Concepts: concepts.md
+  - Deployment:
+    - Production Guide: deployment.md
   - API Reference:
     - API Overview: api/overview.md
     - "Scanner: Base Interface": api/scanners/base.md
