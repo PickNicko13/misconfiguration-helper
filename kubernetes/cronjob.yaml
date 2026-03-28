@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mch-periodic-scan
+  namespace: security
+spec:
+  schedule: "0 0 * * *" # At 00:00 every day
+  concurrencyPolicy: Replace
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: mch-scanner
+            image: ghcr.io/pn13/misconfiguration-helper/mch:latest
+            # Update these arguments to fit your scan targets
+            args: ["scan", "all", "target.your-infrastructure.local"]
+            volumeMounts:
+            - name: mch-config
+              mountPath: /home/mch-runner/.config/mch
+            - name: mch-share
+              mountPath: /home/mch-runner/.local/share/mch
+          restartPolicy: OnFailure
+          volumes:
+          - name: mch-config
+            persistentVolumeClaim:
+              claimName: mch-config-pvc
+          - name: mch-share
+            persistentVolumeClaim:
+              claimName: mch-share-pvc

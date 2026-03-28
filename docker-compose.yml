@@ -1,0 +1,15 @@
+services:
+  mch:
+    build: .
+    image: pn13/mch:latest
+    container_name: mch-scanner
+    volumes:
+      # Persist configuration and state files across runs
+      - mch-config:/home/mch-runner/.config/mch
+      - mch-share:/home/mch-runner/.local/share/mch
+    restart: "no" # For one-off scans
+    network_mode: host # To allow scanning local network/containers
+
+volumes:
+  mch-config:
+  mch-share:
