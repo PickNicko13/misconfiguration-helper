@@ -1,8 +1,10 @@
 # Production Deployment Guide for MCH (Misconfiguration Helper)
 
-This document provides instructions for Release Engineers and DevOps professionals for deploying MCH in a production or management environment. MCH is a CLI-based security scanner designed to be run from a centralized management box or jump host.
+This document provides instructions for Release Engineers and DevOps professionals for deploying MCH in a production or management environment. MCH is a CLI-based security scanner which can be run from a local machine or a remote if you so choose.
 
 ## 1. Hardware Requirements
+
+Note that requirements are approximate and may differ depending on your system (such as the OS you are using).
 
 | Component | Minimum Requirement | Recommended |
 | :--- | :--- | :--- |
@@ -12,6 +14,8 @@ This document provides instructions for Release Engineers and DevOps professiona
 | **Disk Space** | 1 GB | 5 GB+ (to accommodate growing logs and state files) |
 
 ## 2. Software Requirements
+
+Note that you may be able to run MCH on other operating systems and with older dependencies, but these are the recommended ones.
 
 *   **Operating System**: Linux (LTS distributions recommended: Ubuntu 24.04+, Debian 12+, RHEL 9+).
 *   **Python**: Version 3.14 or higher.
@@ -97,3 +101,13 @@ To ensure MCH is correctly deployed and functional, perform the following checks
 
 4.  **State Persistence Check**:
     Verify that the `~/.local/share/mch/targets/` directory contains a JSON file corresponding to the scan target.
+
+## 8. Routine Automation
+
+MCH provides several automation scripts located in `docs/scripts/` to simplify common development and maintenance tasks:
+
+*   **Setup Development Environment**: `docs/scripts/setup-dev.sh` installs all necessary dependencies and hooks for local work.
+*   **Run Quality Checks**: `docs/scripts/run-dev-checks.sh` executes code formatting, type checking, and unit tests.
+*   **Production Routine Scans**: `docs/scripts/mch-prod-scan.sh` performs baseline scans against production hostsets.
+*   **Security State Cleanup**: `docs/scripts/cleanup-state.sh` clears local scan archives and logs.
+*   **Multi-process Management**: Use the provided `docs/scripts/Procfile` with tools like `foreman` or `honcho` to concurrently run the documentation server and scanner logs.

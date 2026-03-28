@@ -1,0 +1,11 @@
+# Routine Process Management: foreman/honcho Procfile for MCH (Misconfiguration Scanner)
+
+# Start a local documentation server with live-reloads
+docs: PATH=$(PWD)/venv/bin:$(PATH) ./venv/bin/mkdocs serve --dev-addr 127.0.0.1:8000
+
+# Continuous monitoring with local scans (requires watchdog/watchmedo)
+# This will automatically trigger a baseline scan when target wordlists or config are changed
+watch-scan: watchmedo shell-command --command="./venv/bin/mch scan ports localhost" --patterns="*.toml;*.txt" --recursive
+
+# Tail application logs for real-time monitoring of scan performance
+logs: tail -f ~/.local/share/mch/mch.log
