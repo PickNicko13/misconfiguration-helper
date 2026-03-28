@@ -7,7 +7,7 @@ This document provides a detailed overview of the documentation system for **MCH
 The project uses a static site generator coupled with automated discovery tools to ensure the documentation stays in sync with the source code.
 
 - **[MkDocs](https://www.mkdocs.org/)**: The core static site generator.
-- **[Terminal](https://github.com/Gioni06/mkdocs-terminal)**: Our customized, high-contrast, terminal-like CSS theme.
+- **[Terminal](https://github.com/Gioni06/mkdocs-terminal)**: The customized, high-contrast, terminal-like CSS theme.
 - **[mkdocstrings](https://mkdocstrings.github.io/)**: A plugin that parses Python docstrings and injects them into the Markdown site.
 - **[mkdocs-typer2](https://github.com/marcelog/mkdocs-typer2)**: A plugin that renders the Typer CLI app help screens as beautiful Markdown tables.
 
@@ -28,10 +28,10 @@ To maintain high-quality technical references, follow these requirements:
 
 ## Markdown Styles
 
-We use the following extensions to enhance readability:
+I use the following extensions to enhance readability:
 
 - **Admonitions**: Use `!!! note`, `!!! warning`, or `!!! critical` for callouts.
-- **Syntax Highlighting**: Code blocks are automatically styled using our custom Gruvbox palette.
+- **Syntax Highlighting**: Code blocks are automatically styled using my custom Gruvbox palette.
 - **Tables**: Use standard Markdown tables for structured data.
 
 ---

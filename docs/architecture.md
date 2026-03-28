@@ -70,8 +70,8 @@ Many modern web applications return a custom HTML page with a `200 OK` status co
 ### Port Scanning: High-Concurrency Probing
 To scan 65,535 ports efficiently without triggering network rate-limiters or exhausting system file handles:
 
--   **Semaphore Gating**: We use `asyncio.Semaphore(100)` to strictly limit the number of simultaneous connection attempts.
--   **Non-Blocking Scopes**: We use `asyncio.open_connection` with a short timeout. If a port doesn't respond quickly, it's marked as closed and the worker immediately moves to the next port.
+-   **Semaphore Gating**: I use `asyncio.Semaphore(100)` to strictly limit the number of simultaneous connection attempts.
+-   **Non-Blocking Scopes**: I use `asyncio.open_connection` with a short timeout. If a port doesn't respond quickly, it's marked as closed and the worker immediately moves to the next port.
 
 ## Severity & Reporting Logic
 

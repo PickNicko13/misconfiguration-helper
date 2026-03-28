@@ -23,6 +23,7 @@ nav:
     - Core Concepts: concepts.md
   - Deployment:
     - Production Guide: deployment.md
+    - Backup & Recovery: backup.md
   - API Reference:
     - API Overview: api/overview.md
     - "Scanner: Base Interface": api/scanners/base.md
