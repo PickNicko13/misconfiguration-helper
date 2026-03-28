@@ -24,6 +24,7 @@ nav:
   - Deployment:
     - Production Guide: deployment.md
     - Backup & Recovery: backup.md
+    - Update & Rollback: update.md
   - API Reference:
     - API Overview: api/overview.md
     - "Scanner: Base Interface": api/scanners/base.md
